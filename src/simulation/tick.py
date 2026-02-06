@@ -25,6 +25,9 @@ def advance_tick(state: GameState, commands: list[Command]) -> None:
     """
     _process_commands(state, commands)
     _update_movement(state)
+    # Recompute fog of war for both players
+    state.visibility.update(state.entities, 0)
+    state.visibility.update(state.entities, 1)
     state.tick += 1
 
 

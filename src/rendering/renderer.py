@@ -21,6 +21,7 @@ from src.config import (
 )
 from src.simulation.state import Entity, EntityState, EntityType, GameState
 from src.simulation.tilemap import TileMap, TileType
+from src.simulation.visibility import UNEXPLORED, FOG, VISIBLE
 
 PLAYER_COLORS = {0: COLOR_PLAYER_1, 1: COLOR_PLAYER_2}
 ANT_RADIUS = 5
@@ -37,6 +38,9 @@ class Renderer:
         self._tile_size = TILE_RENDER_SIZE
         self._font = pygame.font.SysFont("monospace", 16)
         self._map_surface: pygame.Surface | None = None
+        self._fog_surface = pygame.Surface(
+            (screen.get_width(), screen.get_height()), pygame.SRCALPHA,
+        )
         if tilemap is not None:
             self._build_map_surface(tilemap)
 
@@ -88,6 +92,7 @@ class Renderer:
         debug_info: dict[str, str],
         camera_x: int = 0,
         camera_y: int = 0,
+        player_id: int = 0,
     ) -> None:
         """Draw one frame.
 
@@ -98,10 +103,14 @@ class Renderer:
             debug_info: Key-value pairs for debug overlay.
             camera_x: Camera offset in pixels (horizontal).
             camera_y: Camera offset in pixels (vertical).
+            player_id: Local player ID (for fog of war).
         """
         self._screen.fill(COLOR_BG)
         self._draw_tiles(camera_x, camera_y)
-        self._draw_entities(state, prev_entities, interp, camera_x, camera_y)
+        self._draw_entities(
+            state, prev_entities, interp, camera_x, camera_y, player_id,
+        )
+        self._draw_fog(state, camera_x, camera_y, player_id)
         self._draw_debug(debug_info)
         pygame.display.flip()
 
@@ -115,6 +124,41 @@ class Renderer:
         src = pygame.Rect(camera_x, camera_y, sw, sh)
         self._screen.blit(self._map_surface, (0, 0), src)
 
+    def _draw_fog(
+        self,
+        state: GameState,
+        camera_x: int,
+        camera_y: int,
+        player_id: int,
+    ) -> None:
+        """Draw fog of war overlay. UNEXPLORED=black, FOG=semi-transparent."""
+        ts = self._tile_size
+        sw = self._screen.get_width()
+        sh = self._screen.get_height()
+        vis_map = state.visibility
+
+        fog = self._fog_surface
+        fog.fill((0, 0, 0, 0))
+
+        start_tx = camera_x // ts
+        start_ty = camera_y // ts
+        end_tx = (camera_x + sw) // ts + 1
+        end_ty = (camera_y + sh) // ts + 1
+
+        for ty in range(start_ty, end_ty):
+            for tx in range(start_tx, end_tx):
+                vis = vis_map.get_visibility(player_id, tx, ty)
+                if vis == VISIBLE:
+                    continue
+                px = tx * ts - camera_x
+                py = ty * ts - camera_y
+                if vis == UNEXPLORED:
+                    pygame.draw.rect(fog, (0, 0, 0, 255), (px, py, ts, ts))
+                else:  # FOG
+                    pygame.draw.rect(fog, (0, 0, 0, 140), (px, py, ts, ts))
+
+        self._screen.blit(fog, (0, 0))
+
     def _draw_entities(
         self,
         state: GameState,
@@ -122,10 +166,12 @@ class Renderer:
         interp: float,
         camera_x: int,
         camera_y: int,
+        player_id: int = 0,
     ) -> None:
         sw = self._screen.get_width()
         sh = self._screen.get_height()
         r = MAX_ENTITY_RADIUS
+        vis_map = state.visibility
 
         for i, entity in enumerate(state.entities):
             if prev_positions is not None and i < len(prev_positions):
@@ -135,6 +181,13 @@ class Renderer:
             else:
                 draw_x = entity.x
                 draw_y = entity.y
+
+            # Hide non-own entities in non-VISIBLE tiles
+            if entity.player_id != player_id:
+                tile_x = draw_x // MILLI_TILES_PER_TILE
+                tile_y = draw_y // MILLI_TILES_PER_TILE
+                if vis_map.get_visibility(player_id, tile_x, tile_y) != VISIBLE:
+                    continue
 
             # Convert milli-tiles to screen pixels, apply camera offset
             sx = draw_x * self._tile_size // MILLI_TILES_PER_TILE - camera_x

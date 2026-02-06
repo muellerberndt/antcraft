@@ -16,6 +16,7 @@ from src.config import (
     ANT_CORPSE_JELLY,
     ANT_DAMAGE,
     ANT_HP,
+    ANT_SIGHT,
     ANT_SPEED,
     APHID_HP,
     APHID_JELLY,
@@ -26,6 +27,7 @@ from src.config import (
     FPS,
     HASH_CHECK_INTERVAL,
     HIVE_HP,
+    HIVE_SIGHT,
     INPUT_DELAY_TICKS,
     MANTIS_DAMAGE,
     MANTIS_HP,
@@ -33,6 +35,7 @@ from src.config import (
     MILLI_TILES_PER_TILE,
     NET_TIMEOUT_DISCONNECT_MS,
     NET_TIMEOUT_WARNING_MS,
+    QUEEN_SIGHT,
     STARTING_ANTS,
     TILE_RENDER_SIZE,
     TICK_DURATION_MS,
@@ -74,6 +77,9 @@ class Game:
         # Simulation (GameState generates the tilemap internally from the seed)
         self._state = GameState(seed=seed)
         self._setup_initial_state()
+        # Compute initial visibility so fog is correct from the start
+        self._state.visibility.update(self._state.entities, 0)
+        self._state.visibility.update(self._state.entities, 1)
 
         # Camera (pixel offset into the map surface)
         self._camera_x = 0
@@ -137,6 +143,7 @@ class Game:
                 player_id=player_id, x=hive_x, y=hive_y,
                 entity_type=EntityType.HIVE,
                 speed=0, hp=HIVE_HP, max_hp=HIVE_HP, damage=0,
+                sight=HIVE_SIGHT,
             )
 
             # Spawn starting ants around the hive
@@ -158,7 +165,7 @@ class Game:
             self._state.create_entity(
                 player_id=-1, x=site_x, y=site_y,
                 entity_type=EntityType.HIVE_SITE,
-                speed=0, hp=0, max_hp=0, damage=0,
+                speed=0, hp=0, max_hp=0, damage=0, sight=0,
             )
 
         # Spawn wildlife around map center
@@ -170,21 +177,24 @@ class Game:
             self._state.create_entity(
                 player_id=-1, x=mcx + dx * mt, y=mcy - 8 * mt,
                 entity_type=EntityType.APHID, speed=0,
-                hp=APHID_HP, max_hp=APHID_HP, jelly_value=APHID_JELLY)
+                hp=APHID_HP, max_hp=APHID_HP, jelly_value=APHID_JELLY,
+                sight=0)
 
         # Beetle
         self._state.create_entity(
             player_id=-1, x=mcx + 8 * mt, y=mcy,
             entity_type=EntityType.BEETLE, speed=0,
             hp=BEETLE_HP, max_hp=BEETLE_HP,
-            damage=BEETLE_DAMAGE, jelly_value=BEETLE_JELLY)
+            damage=BEETLE_DAMAGE, jelly_value=BEETLE_JELLY,
+            sight=0)
 
         # Mantis
         self._state.create_entity(
             player_id=-1, x=mcx, y=mcy + 8 * mt,
             entity_type=EntityType.MANTIS, speed=0,
             hp=MANTIS_HP, max_hp=MANTIS_HP,
-            damage=MANTIS_DAMAGE, jelly_value=MANTIS_JELLY)
+            damage=MANTIS_DAMAGE, jelly_value=MANTIS_JELLY,
+            sight=0)
 
     def run(self) -> None:
         """Main game loop. Returns when the game ends."""
@@ -388,6 +398,7 @@ class Game:
         self._renderer.draw(
             self._state, self._prev_positions, interp, debug_info,
             camera_x=self._camera_x, camera_y=self._camera_y,
+            player_id=self._player_id,
         )
 
     def _draw_connecting(self) -> None:

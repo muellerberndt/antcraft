@@ -11,6 +11,7 @@ All values are starting points, to be tuned through playtesting.
 | HP                 | 20         |
 | Damage             | 5 DPS      |
 | Speed              | 60 px/sec  |
+| Sight radius       | 5 tiles    |
 | Spawn cost         | 10 jelly   |
 | Spawn cooldown     | 2 sec      |
 | Corpse jelly value | 5 jelly    |
@@ -21,6 +22,7 @@ All values are starting points, to be tuned through playtesting.
 |--------------------|------------|
 | HP                 | 50         |
 | Speed              | 30 px/sec  |
+| Sight radius       | 7 tiles    |
 | Merge cost         | 5 ants     |
 | Cannot attack      | —          |
 
@@ -30,6 +32,7 @@ All values are starting points, to be tuned through playtesting.
 |--------------------|------------|
 | HP                 | 200        |
 | Passive income     | 2 jelly/sec|
+| Sight radius       | 16 tiles   |
 
 ## Wildlife
 

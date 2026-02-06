@@ -65,18 +65,19 @@ The shared interfaces PR has been merged. The following are already in place:
 - [ ] Selected unit highlight — pending Task 5 (Selection System)
 - [ ] FOUNDING animation — pending simulation support
 
-## Task 4: Fog of War Rendering
+## Task 4: Fog of War Rendering — DONE
 
-**File:** `src/rendering/renderer.py` (extend existing)
+**Files:** `src/simulation/visibility.py`, `src/rendering/renderer.py`, `tests/test_simulation/test_visibility.py`
 
-- [ ] After drawing tiles and entities, overlay fog of war:
-  - UNEXPLORED: black overlay (fully opaque)
-  - FOG: dark semi-transparent overlay (terrain visible, units hidden)
-  - VISIBLE: no overlay
-- [ ] Use Ben's `VisibilityMap` interface: `visibility.get_visibility(player_id, x, y)`
-- [ ] **For development before Ben's code:** assume all tiles VISIBLE (no-op overlay), or create a simple mock that reveals a circle around the center
-- [ ] Enemy entities in FOG tiles should not be drawn
-- [ ] Only draw tiles within camera viewport (same culling as tile rendering)
+- [x] `VisibilityMap` class: per-player 2D tile grid with UNEXPLORED/FOG/VISIBLE states
+- [x] `update()` recomputes visibility each tick: demotes VISIBLE→FOG, reveals tiles within entity sight radius using integer Euclidean distance (`dx*dx + dy*dy <= radius*radius`)
+- [x] Per-entity sight radius: ANT=5, QUEEN=7, HIVE=16 tiles (wildlife/neutrals=0)
+- [x] Fog overlay rendering via pre-allocated SRCALPHA surface: UNEXPLORED=black, FOG=semi-transparent dark, VISIBLE=no overlay
+- [x] Enemy/neutral entities hidden in non-VISIBLE tiles
+- [x] Fog overlay only drawn for tiles within camera viewport
+- [x] Visibility wired into GameState, updated at end of each `advance_tick()`, included in `compute_hash()`
+- [x] Initial visibility computed after entity placement (tick 0)
+- [x] 14 unit tests: reveal, fog transitions, per-player isolation, euclidean distance, edge cases
 
 ## Task 5: Selection System
 

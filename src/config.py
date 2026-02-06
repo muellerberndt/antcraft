@@ -54,8 +54,13 @@ STARTING_JELLY = 50
 STARTING_ANTS = 5
 CORPSE_DECAY_TICKS = 150  # 15 sec at 10 Hz
 
+# --- Sight radii (tiles) ---
+ANT_SIGHT = 5
+QUEEN_SIGHT = 7
+HIVE_SIGHT = 16
+
 # --- General ---
-SIGHT_RADIUS = 5          # tiles
+SIGHT_RADIUS = ANT_SIGHT  # backward compat alias
 ATTACK_RANGE = 1          # tiles
 
 # --- Camera & Input ---

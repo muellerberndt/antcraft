@@ -19,12 +19,14 @@ from enum import IntEnum
 
 from src.config import (
     ANT_HP,
+    ANT_SIGHT,
     ANT_SPEED,
     MAP_HEIGHT_TILES,
     MAP_WIDTH_TILES,
     STARTING_JELLY,
 )
 from src.simulation.tilemap import TileMap, generate_map
+from src.simulation.visibility import VisibilityMap
 
 
 class EntityType(IntEnum):
@@ -67,6 +69,7 @@ class Entity:
     path: list[tuple[int, int]] = field(default_factory=list)
     carrying: int = 0       # jelly being carried
     jelly_value: int = 0    # jelly dropped on death (corpse value)
+    sight: int = ANT_SIGHT  # sight radius in tiles
 
     @property
     def is_moving(self) -> bool:
@@ -94,6 +97,7 @@ class GameState:
         self.winner: int = -1
         self.tilemap: TileMap = generate_map(seed, MAP_WIDTH_TILES, MAP_HEIGHT_TILES)
         self.player_jelly: dict[int, int] = {0: STARTING_JELLY, 1: STARTING_JELLY}
+        self.visibility: VisibilityMap = VisibilityMap(MAP_WIDTH_TILES, MAP_HEIGHT_TILES)
 
     def create_entity(
         self,
@@ -166,4 +170,8 @@ class GameState:
             h.update(e.state.to_bytes(1, "big"))
             h.update(e.carrying.to_bytes(4, "big"))
             h.update(e.jelly_value.to_bytes(4, "big"))
+            h.update(e.sight.to_bytes(4, "big"))
+        # Visibility grids
+        for pid in range(self.visibility.num_players):
+            h.update(self.visibility.get_grid_bytes(pid))
         return h.digest()
