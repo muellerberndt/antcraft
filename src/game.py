@@ -23,6 +23,7 @@ from src.config import (
     BEETLE_DAMAGE,
     BEETLE_HP,
     BEETLE_JELLY,
+    BEETLE_SPEED,
     CAMERA_SCROLL_SPEED,
     FPS,
     HASH_CHECK_INTERVAL,
@@ -32,6 +33,7 @@ from src.config import (
     MANTIS_DAMAGE,
     MANTIS_HP,
     MANTIS_JELLY,
+    MANTIS_SPEED,
     MILLI_TILES_PER_TILE,
     NET_TIMEOUT_DISCONNECT_MS,
     NET_TIMEOUT_WARNING_MS,
@@ -183,7 +185,7 @@ class Game:
         # Beetle
         self._state.create_entity(
             player_id=-1, x=mcx + 8 * mt, y=mcy,
-            entity_type=EntityType.BEETLE, speed=0,
+            entity_type=EntityType.BEETLE, speed=BEETLE_SPEED,
             hp=BEETLE_HP, max_hp=BEETLE_HP,
             damage=BEETLE_DAMAGE, jelly_value=BEETLE_JELLY,
             sight=0)
@@ -191,7 +193,7 @@ class Game:
         # Mantis
         self._state.create_entity(
             player_id=-1, x=mcx, y=mcy + 8 * mt,
-            entity_type=EntityType.MANTIS, speed=0,
+            entity_type=EntityType.MANTIS, speed=MANTIS_SPEED,
             hp=MANTIS_HP, max_hp=MANTIS_HP,
             damage=MANTIS_DAMAGE, jelly_value=MANTIS_JELLY,
             sight=0)

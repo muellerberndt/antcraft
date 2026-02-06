@@ -200,26 +200,32 @@ The shared interfaces PR has been merged. The following are already in place:
   - Win condition: eliminated, no false trigger, mutual elimination draw, site not counted
   - Determinism: spawn cycle, cooldown affects hash
 
-## Task 8: Wildlife
+## Task 8: Wildlife — DONE
 
 **File:** `src/simulation/wildlife.py`
 **Tests:** `tests/test_simulation/test_wildlife.py`
 
-- [ ] Wildlife entity creation:
+- [x] Wildlife entity creation:
   - APHID: `hp=5, damage=0, jelly_value=3, speed=0` (passive, doesn't move)
   - BEETLE: `hp=80, damage=8, jelly_value=25, speed=20`
   - MANTIS: `hp=200, damage=20, jelly_value=80, speed=15`
-- [ ] Wildlife spawning:
-  - Periodically spawn wildlife at random map locations (using GameState PRNG)
-  - Spawn rates configurable; avoid spawning near hives
-- [ ] Wildlife AI (simple):
-  - Beetles/mantis: attack nearby ants if any within range, otherwise idle
-  - Aphids: do nothing
-- [ ] Tests:
-  - Wildlife spawns at valid locations
-  - Beetles attack ants in range
-  - Aphids don't attack
-  - Killed wildlife creates corpse with correct jelly
+- [x] Wildlife spawning:
+  - Every WILDLIFE_SPAWN_INTERVAL (100) ticks, roll PRNG to pick type (50% aphid, 30% beetle, 20% mantis)
+  - Check population cap (20 aphids, 5 beetles, 2 mantis), spawn on random walkable tile
+  - Avoid spawning within WILDLIFE_HIVE_EXCLUSION (10 tiles) of any hive
+  - Up to 10 placement attempts per spawn; all PRNG via GameState.next_random()
+- [x] Wildlife AI (simple):
+  - Beetles/mantis: scan for nearest player entity within WILDLIFE_AGGRO_RANGE (5 tiles)
+  - If found and idle (not attacking/moving), pathfind toward target
+  - Combat system handles auto-attack when within ATTACK_RANGE
+  - Aphids: do nothing (speed=0, damage=0)
+- [x] Config: added BEETLE_SPEED=20, MANTIS_SPEED=15, WILDLIFE_SPAWN_INTERVAL=100, WILDLIFE_HIVE_EXCLUSION=10, WILDLIFE_MAX_APHIDS=20, WILDLIFE_MAX_BEETLES=5, WILDLIFE_MAX_MANTIS=2, WILDLIFE_AGGRO_RANGE=5
+- [x] game.py: updated initial wildlife to use BEETLE_SPEED and MANTIS_SPEED
+- [x] Tick pipeline: `commands → wildlife AI/spawn → movement → separation → combat → hive mechanics → fog of war → tick++`
+- [x] Tests (19 passing):
+  - AI: beetle chases ant, mantis chases ant, ignores distant ant, aphid no movement, no chase other wildlife, attacking doesn't retarget, moving doesn't retarget, chases nearest
+  - Spawning: no spawn outside interval, spawns at interval, walkable tile, avoids hives, cap respected, correct stats (aphid/beetle/mantis), deterministic
+  - Integration: killed wildlife creates corpse with correct jelly, determinism across ticks
 
 
 ## Integration Notes

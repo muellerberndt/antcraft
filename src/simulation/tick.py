@@ -22,6 +22,7 @@ from src.simulation.hive import (
 )
 from src.simulation.pathfinding import find_path
 from src.simulation.state import GameState
+from src.simulation.wildlife import process_wildlife
 
 
 def advance_tick(state: GameState, commands: list[Command]) -> None:
@@ -32,6 +33,7 @@ def advance_tick(state: GameState, commands: list[Command]) -> None:
         commands: All commands for this tick, sorted deterministically.
     """
     _process_commands(state, commands)
+    process_wildlife(state)
     _update_movement(state)
     _apply_separation(state)
     process_combat(state)

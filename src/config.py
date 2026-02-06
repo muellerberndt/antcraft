@@ -51,6 +51,18 @@ MANTIS_HP = 200
 MANTIS_DAMAGE = 20        # DPS
 MANTIS_JELLY = 80
 
+# Wildlife speeds (milli-tiles per tick)
+BEETLE_SPEED = 20
+MANTIS_SPEED = 15
+
+# Wildlife spawning
+WILDLIFE_SPAWN_INTERVAL = 100    # ticks (10 sec) between spawn attempts
+WILDLIFE_HIVE_EXCLUSION = 10     # tiles — don't spawn within this radius of hives
+WILDLIFE_MAX_APHIDS = 20
+WILDLIFE_MAX_BEETLES = 5
+WILDLIFE_MAX_MANTIS = 2
+WILDLIFE_AGGRO_RANGE = 5         # tiles — beetles/mantis chase player entities within this
+
 # --- Economy ---
 STARTING_JELLY = 50
 STARTING_ANTS = 5
