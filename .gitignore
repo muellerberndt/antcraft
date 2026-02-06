@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+eggs/
+*.whl
+pip-wheel-metadata/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+
+# Pygame / game assets (build artifacts)
+*.pyc
+
+# Environment variables
+.env
+.env.local
+
+# Distribution
+*.tar.gz
+*.zip
