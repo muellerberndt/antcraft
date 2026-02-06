@@ -55,19 +55,19 @@ The shared interfaces PR has been merged. The following are already in place:
   - Both tile types present
   - Determinism verified across multiple seeds
 
-## Task 2: Integrate TileMap + Jelly Economy into GameState
+## Task 2: Integrate TileMap + Jelly Economy into GameState — DONE
 
-**File:** `src/simulation/state.py`
+**Files:** `src/simulation/state.py`, `src/game.py`, `src/rendering/renderer.py`
 
-- [ ] Add `tilemap: TileMap` field to `GameState`
-- [ ] Add `player_jelly: dict[int, int]` to `GameState` (player_id -> jelly amount)
-  - Initialize with `STARTING_JELLY` per player
-- [ ] Generate tilemap in `GameState.__init__()` using the seed
-- [ ] Update `compute_hash()` to include tilemap state and player_jelly
-- [ ] Update `_setup_initial_state` in `game.py`:
-  - Spawn 1 HIVE per player at starting location
-  - Spawn `STARTING_ANTS` ANT entities per player near their hive
-  - Place HIVE_SITE entities at map generation locations
+- [x] Add `tilemap: TileMap` field to `GameState` (generated from seed in `__init__`)
+- [x] Add `player_jelly: dict[int, int]` to `GameState` — `{0: 50, 1: 50}` (STARTING_JELLY)
+- [x] Update `compute_hash()` to include player_jelly + tilemap tiles + signed player_id
+- [x] Update `_setup_initial_state` in `game.py`:
+  - 1 HIVE per player (hp=200, speed=0) at tilemap start positions
+  - 5 ANTs per player (hp=20, dmg=5, speed=60) clustered around hive
+  - HIVE_SITE entities (neutral, player_id=-1) at expansion points
+- [x] Renderer draws entity types distinctly (hive=large circle, hive_site=diamond, ant=small circle)
+- [x] Debug overlay shows Jelly + Ant count
 
 ## Task 3: A* Pathfinding
 

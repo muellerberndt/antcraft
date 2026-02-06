@@ -13,15 +13,21 @@ from enum import Enum, auto
 import pygame
 
 from src.config import (
+    ANT_CORPSE_JELLY,
+    ANT_DAMAGE,
+    ANT_HP,
+    ANT_SPEED,
     CAMERA_SCROLL_SPEED,
     FPS,
     HASH_CHECK_INTERVAL,
+    HIVE_HP,
     INPUT_DELAY_TICKS,
     MAP_HEIGHT_TILES,
     MAP_WIDTH_TILES,
     MILLI_TILES_PER_TILE,
     NET_TIMEOUT_DISCONNECT_MS,
     NET_TIMEOUT_WARNING_MS,
+    STARTING_ANTS,
     TILE_RENDER_SIZE,
     TICK_DURATION_MS,
 )
@@ -29,9 +35,8 @@ from src.input.handler import InputHandler
 from src.networking.peer import NetworkPeer
 from src.rendering.renderer import Renderer
 from src.simulation.commands import Command, CommandType
-from src.simulation.state import GameState
+from src.simulation.state import EntityType, GameState
 from src.simulation.tick import advance_tick
-from src.simulation.tilemap import generate_map
 
 logger = logging.getLogger(__name__)
 
@@ -60,18 +65,16 @@ class Game:
         # Tile rendering size
         self._tile_size = TILE_RENDER_SIZE
 
-        # Generate tilemap from seed (deterministic — both peers get the same map)
-        self._tilemap = generate_map(seed, MAP_WIDTH_TILES, MAP_HEIGHT_TILES)
-
-        # Simulation
+        # Simulation (GameState generates the tilemap internally from the seed)
         self._state = GameState(seed=seed)
         self._setup_initial_state()
 
         # Camera (pixel offset into the map surface)
         self._camera_x = 0
         self._camera_y = 0
-        self._max_camera_x = max(0, MAP_WIDTH_TILES * self._tile_size - screen.get_width())
-        self._max_camera_y = max(0, MAP_HEIGHT_TILES * self._tile_size - screen.get_height())
+        tilemap = self._state.tilemap
+        self._max_camera_x = max(0, tilemap.width * self._tile_size - screen.get_width())
+        self._max_camera_y = max(0, tilemap.height * self._tile_size - screen.get_height())
         # Center camera on player's start position
         self._center_camera_on_start()
 
@@ -87,7 +90,7 @@ class Game:
         self._last_frame_time_ms: int = pygame.time.get_ticks()
 
         # Components
-        self._renderer = Renderer(screen, tilemap=self._tilemap)
+        self._renderer = Renderer(screen, tilemap=self._state.tilemap)
         self._input = InputHandler(player_id, self._tile_size)
 
         # Phase
@@ -97,8 +100,9 @@ class Game:
 
     def _center_camera_on_start(self) -> None:
         """Center camera on this player's starting area."""
-        if self._player_id < len(self._tilemap.start_positions):
-            sx, sy = self._tilemap.start_positions[self._player_id]
+        tilemap = self._state.tilemap
+        if self._player_id < len(tilemap.start_positions):
+            sx, sy = tilemap.start_positions[self._player_id]
             # Convert tile coords to pixel coords, center on screen
             px = sx * self._tile_size - self._screen.get_width() // 2
             py = sy * self._tile_size - self._screen.get_height() // 2
@@ -106,12 +110,48 @@ class Game:
             self._camera_y = max(0, min(py, self._max_camera_y))
 
     def _setup_initial_state(self) -> None:
-        """Create starting entities for both players."""
-        for i, (tx, ty) in enumerate(self._tilemap.start_positions):
-            # Convert tile coords to milli-tile center
-            x = tx * MILLI_TILES_PER_TILE + MILLI_TILES_PER_TILE // 2
-            y = ty * MILLI_TILES_PER_TILE + MILLI_TILES_PER_TILE // 2
-            self._state.create_entity(player_id=i, x=x, y=y)
+        """Create starting entities for both players.
+
+        Per balance.md: 1 hive + STARTING_ANTS ants per player,
+        plus neutral HIVE_SITE entities at expansion points.
+        """
+        tilemap = self._state.tilemap
+
+        # Ant placement offsets (tile offsets from hive, for STARTING_ANTS=5)
+        ant_offsets = [(-2, -1), (-1, 1), (0, -2), (1, 1), (2, -1)]
+
+        for player_id, (tx, ty) in enumerate(tilemap.start_positions):
+            hive_x = tx * MILLI_TILES_PER_TILE + MILLI_TILES_PER_TILE // 2
+            hive_y = ty * MILLI_TILES_PER_TILE + MILLI_TILES_PER_TILE // 2
+
+            # Spawn hive
+            self._state.create_entity(
+                player_id=player_id, x=hive_x, y=hive_y,
+                entity_type=EntityType.HIVE,
+                speed=0, hp=HIVE_HP, max_hp=HIVE_HP, damage=0,
+            )
+
+            # Spawn starting ants around the hive
+            for i in range(STARTING_ANTS):
+                dx, dy = ant_offsets[i % len(ant_offsets)]
+                ax = hive_x + dx * MILLI_TILES_PER_TILE
+                ay = hive_y + dy * MILLI_TILES_PER_TILE
+                self._state.create_entity(
+                    player_id=player_id, x=ax, y=ay,
+                    entity_type=EntityType.ANT,
+                    speed=ANT_SPEED, hp=ANT_HP, max_hp=ANT_HP,
+                    damage=ANT_DAMAGE, jelly_value=ANT_CORPSE_JELLY,
+                )
+
+        # Place neutral hive sites at expansion points
+        for sx, sy in tilemap.hive_site_positions:
+            site_x = sx * MILLI_TILES_PER_TILE + MILLI_TILES_PER_TILE // 2
+            site_y = sy * MILLI_TILES_PER_TILE + MILLI_TILES_PER_TILE // 2
+            self._state.create_entity(
+                player_id=-1, x=site_x, y=site_y,
+                entity_type=EntityType.HIVE_SITE,
+                speed=0, hp=0, max_hp=0, damage=0,
+            )
 
     def run(self) -> None:
         """Main game loop. Returns when the game ends."""
@@ -127,10 +167,11 @@ class Game:
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
                     pygame.display.toggle_fullscreen()
                     # Update camera bounds for new screen size
+                    tm = self._state.tilemap
                     self._max_camera_x = max(
-                        0, MAP_WIDTH_TILES * self._tile_size - self._screen.get_width())
+                        0, tm.width * self._tile_size - self._screen.get_width())
                     self._max_camera_y = max(
-                        0, MAP_HEIGHT_TILES * self._tile_size - self._screen.get_height())
+                        0, tm.height * self._tile_size - self._screen.get_height())
 
             if not running:
                 break
@@ -289,9 +330,16 @@ class Game:
 
     def _render(self, interp: float) -> None:
         """Draw the current frame."""
+        jelly = self._state.player_jelly.get(self._player_id, 0)
+        ant_count = sum(
+            1 for e in self._state.entities
+            if e.entity_type == EntityType.ANT and e.player_id == self._player_id
+        )
         debug_info = {
             "Tick": str(self._state.tick),
             "Player": str(self._player_id),
+            "Jelly": str(jelly),
+            "Ants": str(ant_count),
             "FPS": str(int(self._clock.get_fps())),
             "Connected": str(self._peer.is_connected()),
         }

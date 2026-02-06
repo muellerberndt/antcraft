@@ -21,7 +21,11 @@ from src.simulation.state import Entity, EntityType, GameState
 from src.simulation.tilemap import TileMap, TileType
 
 PLAYER_COLORS = {0: COLOR_PLAYER_1, 1: COLOR_PLAYER_2}
-ANT_RADIUS = 8
+ANT_RADIUS = 5
+HIVE_RADIUS = 12
+HIVE_SITE_RADIUS = 8
+COLOR_HIVE_SITE = (160, 150, 120)  # neutral beige
+MAX_ENTITY_RADIUS = HIVE_RADIUS  # for culling
 
 
 class Renderer:
@@ -118,6 +122,10 @@ class Renderer:
         camera_x: int,
         camera_y: int,
     ) -> None:
+        sw = self._screen.get_width()
+        sh = self._screen.get_height()
+        r = MAX_ENTITY_RADIUS
+
         for i, entity in enumerate(state.entities):
             if prev_positions is not None and i < len(prev_positions):
                 px, py = prev_positions[i]
@@ -132,24 +140,46 @@ class Renderer:
             sy = draw_y * self._tile_size // MILLI_TILES_PER_TILE - camera_y
 
             # Cull off-screen entities
-            sw = self._screen.get_width()
-            sh = self._screen.get_height()
-            if sx < -ANT_RADIUS or sx > sw + ANT_RADIUS:
-                continue
-            if sy < -ANT_RADIUS or sy > sh + ANT_RADIUS:
+            if sx < -r or sx > sw + r or sy < -r or sy > sh + r:
                 continue
 
-            color = PLAYER_COLORS.get(entity.player_id, (200, 200, 200))
-            pygame.draw.circle(self._screen, color, (sx, sy), ANT_RADIUS)
-            pygame.draw.circle(self._screen, (0, 0, 0), (sx, sy), ANT_RADIUS, 2)
+            self._draw_entity(entity, sx, sy)
 
             # Draw target indicator if moving
             if entity.is_moving:
                 tx = entity.target_x * self._tile_size // MILLI_TILES_PER_TILE - camera_x
                 ty = entity.target_y * self._tile_size // MILLI_TILES_PER_TILE - camera_y
+                color = PLAYER_COLORS.get(entity.player_id, (200, 200, 200))
                 target_color = tuple(c // 2 for c in color)
                 pygame.draw.circle(self._screen, target_color, (tx, ty), 4)
                 pygame.draw.line(self._screen, target_color, (sx, sy), (tx, ty), 1)
+
+    def _draw_entity(self, entity: Entity, sx: int, sy: int) -> None:
+        """Draw a single entity at screen position (sx, sy)."""
+        color = PLAYER_COLORS.get(entity.player_id, (200, 200, 200))
+
+        if entity.entity_type == EntityType.HIVE:
+            # Large filled circle with thicker outline
+            pygame.draw.circle(self._screen, color, (sx, sy), HIVE_RADIUS)
+            pygame.draw.circle(self._screen, (0, 0, 0), (sx, sy), HIVE_RADIUS, 2)
+            # Inner dot to distinguish from ants
+            pygame.draw.circle(self._screen, (255, 255, 255), (sx, sy), 3)
+
+        elif entity.entity_type == EntityType.HIVE_SITE:
+            # Neutral diamond marker
+            pts = [(sx, sy - HIVE_SITE_RADIUS), (sx + HIVE_SITE_RADIUS, sy),
+                   (sx, sy + HIVE_SITE_RADIUS), (sx - HIVE_SITE_RADIUS, sy)]
+            pygame.draw.polygon(self._screen, COLOR_HIVE_SITE, pts, 2)
+
+        elif entity.entity_type == EntityType.ANT:
+            # Small player-colored circle
+            pygame.draw.circle(self._screen, color, (sx, sy), ANT_RADIUS)
+            pygame.draw.circle(self._screen, (0, 0, 0), (sx, sy), ANT_RADIUS, 1)
+
+        else:
+            # Fallback for other types (corpses, wildlife, queens)
+            pygame.draw.circle(self._screen, color, (sx, sy), ANT_RADIUS)
+            pygame.draw.circle(self._screen, (0, 0, 0), (sx, sy), ANT_RADIUS, 2)
 
     def _draw_debug(self, debug_info: dict[str, str]) -> None:
         y = 5

@@ -17,7 +17,14 @@ import hashlib
 from dataclasses import dataclass, field
 from enum import IntEnum
 
-from src.config import ANT_HP, ANT_SPEED
+from src.config import (
+    ANT_HP,
+    ANT_SPEED,
+    MAP_HEIGHT_TILES,
+    MAP_WIDTH_TILES,
+    STARTING_JELLY,
+)
+from src.simulation.tilemap import TileMap, generate_map
 
 
 class EntityType(IntEnum):
@@ -85,6 +92,8 @@ class GameState:
         self.next_entity_id: int = 0
         self.game_over: bool = False
         self.winner: int = -1
+        self.tilemap: TileMap = generate_map(seed, MAP_WIDTH_TILES, MAP_HEIGHT_TILES)
+        self.player_jelly: dict[int, int] = {0: STARTING_JELLY, 1: STARTING_JELLY}
 
     def create_entity(
         self,
@@ -133,11 +142,19 @@ class GameState:
         h = hashlib.sha256()
         h.update(self.tick.to_bytes(4, "big"))
         h.update(self.rng_state.to_bytes(4, "big"))
+        # Player jelly (sorted by player_id for determinism)
+        h.update(len(self.player_jelly).to_bytes(4, "big"))
+        for pid in sorted(self.player_jelly):
+            h.update(pid.to_bytes(4, "big", signed=True))
+            h.update(self.player_jelly[pid].to_bytes(4, "big"))
+        # Tilemap tiles
+        h.update(bytes(self.tilemap.tiles))
+        # Entities
         h.update(len(self.entities).to_bytes(4, "big"))
         for e in self.entities:
             h.update(e.entity_id.to_bytes(4, "big"))
             h.update(e.entity_type.to_bytes(1, "big"))
-            h.update(e.player_id.to_bytes(4, "big"))
+            h.update(e.player_id.to_bytes(4, "big", signed=True))
             h.update(e.x.to_bytes(4, "big", signed=True))
             h.update(e.y.to_bytes(4, "big", signed=True))
             h.update(e.target_x.to_bytes(4, "big", signed=True))

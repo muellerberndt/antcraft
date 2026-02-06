@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from math import isqrt
 
+from src.config import MILLI_TILES_PER_TILE
 from src.simulation.commands import Command, CommandType
 from src.simulation.state import GameState
 
@@ -37,7 +38,13 @@ def _process_commands(state: GameState, commands: list[Command]) -> None:
 
 
 def _handle_move(state: GameState, cmd: Command) -> None:
-    """Set target position for entities."""
+    """Set target position for entities. Rejects moves to non-walkable tiles."""
+    # Check if target tile is walkable
+    target_tile_x = cmd.target_x // MILLI_TILES_PER_TILE
+    target_tile_y = cmd.target_y // MILLI_TILES_PER_TILE
+    if not state.tilemap.is_walkable(target_tile_x, target_tile_y):
+        return
+
     for entity_id in cmd.entity_ids:
         entity = state.get_entity(entity_id)
         if entity is not None and entity.player_id == cmd.player_id:
@@ -55,7 +62,12 @@ def _handle_stop(state: GameState, cmd: Command) -> None:
 
 
 def _update_movement(state: GameState) -> None:
-    """Move all entities toward their targets. Integer math only."""
+    """Move all entities toward their targets. Integer math only.
+
+    Checks tilemap walkability before moving — entities stop at rock tiles.
+    This is a simple collision check; proper pathfinding (A*) comes in Task 3.
+    """
+    tilemap = state.tilemap
     for entity in state.entities:
         if not entity.is_moving:
             continue
@@ -66,10 +78,19 @@ def _update_movement(state: GameState) -> None:
         dist = isqrt(dist_sq)
 
         if dist <= entity.speed:
-            # Close enough — snap to target
-            entity.x = entity.target_x
-            entity.y = entity.target_y
+            new_x = entity.target_x
+            new_y = entity.target_y
         else:
-            # Move speed units toward target
-            entity.x += dx * entity.speed // dist
-            entity.y += dy * entity.speed // dist
+            new_x = entity.x + dx * entity.speed // dist
+            new_y = entity.y + dy * entity.speed // dist
+
+        # Check if destination tile is walkable
+        tile_x = new_x // MILLI_TILES_PER_TILE
+        tile_y = new_y // MILLI_TILES_PER_TILE
+        if tilemap.is_walkable(tile_x, tile_y):
+            entity.x = new_x
+            entity.y = new_y
+        else:
+            # Blocked — stop the entity
+            entity.target_x = entity.x
+            entity.target_y = entity.y
