@@ -1,0 +1,296 @@
+"""Game state machine and lockstep game loop.
+
+Manages the game lifecycle: MENU → CONNECTING → PLAYING → DISCONNECTED.
+Runs the fixed-tick lockstep simulation decoupled from the render frame rate.
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+from enum import Enum, auto
+
+import pygame
+
+from src.config import (
+    FPS,
+    HASH_CHECK_INTERVAL,
+    MAP_HEIGHT_TILES,
+    MAP_WIDTH_TILES,
+    MILLI_TILES_PER_TILE,
+    NET_TIMEOUT_DISCONNECT_MS,
+    NET_TIMEOUT_WARNING_MS,
+    SCREEN_HEIGHT,
+    SCREEN_WIDTH,
+    TICK_DURATION_MS,
+)
+from src.input.handler import InputHandler
+from src.networking.peer import NetworkPeer
+from src.rendering.renderer import Renderer
+from src.simulation.commands import Command, CommandType
+from src.simulation.state import GameState
+from src.simulation.tick import advance_tick
+
+logger = logging.getLogger(__name__)
+
+
+class GamePhase(Enum):
+    CONNECTING = auto()
+    PLAYING = auto()
+    DISCONNECTED = auto()
+
+
+class Game:
+    """Main game controller. Owns the game state, network peer, and rendering."""
+
+    def __init__(
+        self,
+        screen: pygame.Surface,
+        peer: NetworkPeer,
+        player_id: int,
+        seed: int,
+    ) -> None:
+        self._screen = screen
+        self._peer = peer
+        self._player_id = player_id
+        self._clock = pygame.time.Clock()
+
+        # Compute tile size to fit the map on screen
+        self._tile_size = min(
+            SCREEN_WIDTH // MAP_WIDTH_TILES,
+            SCREEN_HEIGHT // MAP_HEIGHT_TILES,
+        )
+
+        # Simulation
+        self._state = GameState(seed=seed)
+        self._setup_initial_state()
+
+        # Lockstep
+        self._pending_commands: dict[int, list[Command]] = {}
+        self._commands_sent_for_tick: set[int] = set()
+        self._peer_commands: dict[int, list[Command]] = {}
+        self._waiting_for_peer = False
+
+        # Rendering interpolation
+        self._prev_positions: list[tuple[int, int]] | None = None
+        self._tick_accumulator_ms: int = 0
+        self._last_frame_time_ms: int = pygame.time.get_ticks()
+
+        # Components
+        self._renderer = Renderer(screen, self._tile_size)
+        self._input = InputHandler(player_id, self._tile_size)
+
+        # Phase
+        self._phase = GamePhase.CONNECTING
+        self._desync_detected = False
+        self._desync_tick: int = -1
+
+    def _setup_initial_state(self) -> None:
+        """Create starting entities for both players."""
+        map_cx = MAP_WIDTH_TILES * MILLI_TILES_PER_TILE // 2
+        map_cy = MAP_HEIGHT_TILES * MILLI_TILES_PER_TILE // 2
+        offset = 10 * MILLI_TILES_PER_TILE
+
+        self._state.create_entity(
+            player_id=0,
+            x=map_cx - offset,
+            y=map_cy,
+        )
+        self._state.create_entity(
+            player_id=1,
+            x=map_cx + offset,
+            y=map_cy,
+        )
+
+    def run(self) -> None:
+        """Main game loop. Returns when the game ends."""
+        running = True
+        while running:
+            # --- Event handling ---
+            events = pygame.event.get()
+            for event in events:
+                if event.type == pygame.QUIT:
+                    running = False
+                elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    running = False
+
+            if not running:
+                break
+
+            # --- Network poll ---
+            self._peer.poll()
+
+            # --- Phase logic ---
+            if self._phase == GamePhase.CONNECTING:
+                if self._peer.is_connected():
+                    self._phase = GamePhase.PLAYING
+                    self._last_frame_time_ms = pygame.time.get_ticks()
+                    logger.info("Game started! Player %d", self._player_id)
+
+            if self._phase == GamePhase.PLAYING:
+                self._update_playing(events)
+            elif self._phase == GamePhase.CONNECTING:
+                self._draw_connecting()
+            elif self._phase == GamePhase.DISCONNECTED:
+                self._draw_disconnected()
+
+            self._clock.tick(FPS)
+
+        self._peer.disconnect()
+
+    def _update_playing(self, events: list[pygame.event.Event]) -> None:
+        """Main gameplay update: process input, lockstep, render."""
+        now_ms = pygame.time.get_ticks()
+        dt_ms = now_ms - self._last_frame_time_ms
+        self._last_frame_time_ms = now_ms
+
+        # --- Input → Commands ---
+        new_commands = self._input.process_events(events, self._state, self._state.tick)
+        for cmd in new_commands:
+            self._pending_commands.setdefault(cmd.tick, []).append(cmd)
+
+        # --- Send commands for upcoming ticks ---
+        self._send_pending_commands()
+
+        # --- Try to advance simulation (lockstep) ---
+        self._tick_accumulator_ms += dt_ms
+        ticks_to_run = self._tick_accumulator_ms // TICK_DURATION_MS
+
+        for _ in range(ticks_to_run):
+            if not self._try_advance_tick():
+                break  # waiting for peer
+            self._tick_accumulator_ms -= TICK_DURATION_MS
+
+        # Cap accumulator to prevent spiral of death
+        if self._tick_accumulator_ms > TICK_DURATION_MS * 5:
+            self._tick_accumulator_ms = TICK_DURATION_MS * 5
+
+        # --- Check for timeout ---
+        from src.networking.udp_peer import UdpNetworkPeer
+        if isinstance(self._peer, UdpNetworkPeer):
+            elapsed = self._peer.time_since_last_recv() * 1000
+            if elapsed > NET_TIMEOUT_DISCONNECT_MS:
+                self._phase = GamePhase.DISCONNECTED
+                return
+            self._waiting_for_peer = elapsed > NET_TIMEOUT_WARNING_MS
+
+        # --- Render ---
+        interp = self._tick_accumulator_ms / TICK_DURATION_MS
+        self._render(interp)
+
+    def _send_pending_commands(self) -> None:
+        """Send commands for ticks we haven't sent yet."""
+        # Always send commands for the current tick + a few ahead
+        for tick in range(self._state.tick, self._state.tick + 4):
+            if tick not in self._commands_sent_for_tick:
+                cmds = self._pending_commands.get(tick, [])
+                self._peer.send_commands(tick, cmds)
+                self._commands_sent_for_tick.add(tick)
+
+    def _try_advance_tick(self) -> bool:
+        """Try to advance the simulation by one tick. Returns False if blocked."""
+        tick = self._state.tick
+
+        # Get our commands for this tick
+        our_cmds = self._pending_commands.pop(tick, [])
+
+        # Ensure we've sent commands for this tick
+        if tick not in self._commands_sent_for_tick:
+            self._peer.send_commands(tick, our_cmds)
+            self._commands_sent_for_tick.add(tick)
+
+        # Get peer's commands for this tick
+        if tick not in self._peer_commands:
+            peer_cmds = self._peer.receive_commands(tick)
+            if peer_cmds is None:
+                # Not ready yet — put our commands back and wait
+                if our_cmds:
+                    self._pending_commands[tick] = our_cmds
+                return False
+            self._peer_commands[tick] = peer_cmds
+
+        peer_cmds = self._peer_commands.pop(tick)
+
+        # Save positions for interpolation
+        self._prev_positions = [(e.x, e.y) for e in self._state.entities]
+
+        # Merge and sort all commands deterministically
+        all_cmds = our_cmds + peer_cmds
+        all_cmds.sort(key=lambda c: c.sort_key())
+
+        # Advance simulation
+        advance_tick(self._state, all_cmds)
+
+        # Clean up sent tracking for old ticks
+        self._commands_sent_for_tick.discard(tick)
+
+        # Desync detection
+        if self._state.tick % HASH_CHECK_INTERVAL == 0:
+            self._check_hash()
+
+        return True
+
+    def _check_hash(self) -> None:
+        """Exchange and compare state hashes for desync detection."""
+        tick = self._state.tick
+        our_hash = self._state.compute_hash()
+        self._peer.send_hash(tick, our_hash)
+
+        peer_hash = self._peer.receive_hash(tick)
+        if peer_hash is not None and peer_hash != our_hash:
+            self._desync_detected = True
+            self._desync_tick = tick
+            logger.error(
+                "DESYNC at tick %d! Our hash: %s, Peer hash: %s",
+                tick,
+                our_hash.hex()[:16],
+                peer_hash.hex()[:16],
+            )
+
+    def _render(self, interp: float) -> None:
+        """Draw the current frame."""
+        debug_info = {
+            "Tick": str(self._state.tick),
+            "Player": str(self._player_id),
+            "FPS": str(int(self._clock.get_fps())),
+            "Connected": str(self._peer.is_connected()),
+        }
+        if self._waiting_for_peer:
+            debug_info["Status"] = "Waiting for opponent..."
+        if self._desync_detected:
+            debug_info["DESYNC"] = f"at tick {self._desync_tick}"
+
+        peer_addr = self._peer.get_peer_address()
+        if peer_addr:
+            debug_info["Peer"] = f"{peer_addr[0]}:{peer_addr[1]}"
+
+        self._renderer.draw(self._state, self._prev_positions, interp, debug_info)
+
+    def _draw_connecting(self) -> None:
+        """Draw the connecting/waiting screen."""
+        self._screen.fill((20, 20, 30))
+        font = pygame.font.SysFont("monospace", 24)
+        text = font.render("Waiting for opponent to connect...", True, (200, 200, 200))
+        rect = text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+        self._screen.blit(text, rect)
+
+        sub_font = pygame.font.SysFont("monospace", 16)
+        if self._peer.get_peer_address():
+            addr = self._peer.get_peer_address()
+            info = f"Peer: {addr[0]}:{addr[1]}"
+        else:
+            info = "Listening for connections..."
+        sub_text = sub_font.render(info, True, (150, 150, 150))
+        sub_rect = sub_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 40))
+        self._screen.blit(sub_text, sub_rect)
+
+        pygame.display.flip()
+
+    def _draw_disconnected(self) -> None:
+        """Draw the disconnected screen."""
+        self._screen.fill((40, 20, 20))
+        font = pygame.font.SysFont("monospace", 24)
+        text = font.render("Disconnected from peer", True, (220, 80, 60))
+        rect = text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+        self._screen.blit(text, rect)
+        pygame.display.flip()
