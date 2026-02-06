@@ -20,6 +20,7 @@ class CommandType(IntEnum):
     SPAWN_ANT = 4    # spawn an ant from a hive
     MERGE_QUEEN = 5  # merge N ants into a queen at a hive
     FOUND_HIVE = 6   # queen founds a hive at a hive site
+    ATTACK = 7       # explicitly attack a target entity (chase + fight)
 
 
 @dataclass(frozen=True, slots=True)

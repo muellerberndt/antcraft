@@ -1,186 +1,175 @@
-# Phase 3: Units, Buildings & Tech Tree
+# Phase 3: Playable Game
 
 ## Goal
 
-Design and implement the actual game content — what makes AntCraft a game, not just a tech demo. By the end of this phase, a real match is playable: build up your colony, produce units, tech up, and fight.
+Make AntCraft playable end-to-end. Two players can fight, harvest, expand, and win/lose. Focus on the core gameplay loop — no extra unit types, buildings, or tech tree yet.
 
-## Milestone Deliverable
+## Scope (Simplified)
 
-- Full unit roster (4–5 ant types) with distinct roles.
-- Building set with construction mechanics.
-- Tech tree with meaningful upgrade choices.
-- Combat system with attack, damage, and unit death.
-- A winnable/loseable game (destroy the enemy nest).
+- **One building**: Hive (already implemented)
+- **Two units**: Ant (fights + harvests) and Queen (founds hives)
+- **No workers**: The single ant type handles combat, harvesting, and merging
+- **Economy**: Passive hive income (done) + corpse harvesting (new)
+- **Better combat**: Explicit attack targeting for micro control
+- **Game feel**: Visual feedback, hotkeys, victory/defeat screen
+
+This aligns with [game_mechanics.md](game_mechanics.md) — the simplified "ants are the resource" design.
 
 ---
 
-## 1. Ant Unit Types
+## What's Already Done (Phase 2)
 
-All values are initial balance targets — expect heavy tuning in Phase 4.
+- Tile map with procedural generation, A* pathfinding, movement
+- Combat: auto-attack, death, corpse creation, corpse decay
+- Hive mechanics: spawn ant, merge queen, found hive, passive income, win condition
+- Wildlife: periodic spawning, beetle/mantis AI chase
+- Fog of war, visibility system
+- Selection (click + drag box), move, stop commands
+- Minimap, HP bars, selection indicators, resource display
+- Multiplayer lockstep networking with desync detection
 
-| Unit | Role | HP | Speed | Attack | Range | Cost | Build Time | Special |
-|------|------|-----|-------|--------|-------|------|------------|---------|
-| **Worker** | Economy | 30 | 80 | 5 | melee | 50 | 3s | Gathers food, constructs buildings |
-| **Soldier** | Frontline | 80 | 60 | 15 | melee | 100 | 5s | Tanky, decent damage |
-| **Spitter** | Ranged | 40 | 50 | 12 | 4 tiles | 120 | 6s | Ranged acid attack |
-| **Scout** | Recon | 25 | 120 | 3 | melee | 40 | 2s | Fast, large sight range (8 tiles) |
-| **Queen Ant** | Siege | 150 | 30 | 25 | melee | 300 | 15s | Massive damage vs buildings. Limit 1. |
+---
 
-### Unit Behaviors (State Machine)
+## What Phase 3 Adds
 
-Each unit has a behavior state:
+### 1. Harvesting System (Simulation)
 
-```
-IDLE → can transition to any state
-MOVING → following path to target
-GATHERING → worker at food source, periodic harvest ticks
-BUILDING → worker at build site, periodic construction ticks
-ATTACKING → in combat range, periodic attack ticks
-RETURNING → worker carrying food back to nest
-FLEEING → moving away from threats (optional, for workers)
-```
+The missing piece of the jelly economy. Ants can pick up jelly from corpses and carry it back to the hive.
 
-- Units auto-attack enemies that enter their aggro radius (configurable per type).
-- Workers flee by default when attacked (can be overridden with explicit attack command).
-- Right-clicking an enemy issues an ATTACK command. Right-clicking ground issues MOVE.
+**Flow:**
+1. Player right-clicks a corpse with ants selected → HARVEST command
+2. Ants pathfind to the corpse
+3. At the corpse: state = HARVESTING, jelly transfers from corpse to ant's `carrying` (rate-limited, HARVEST_RATE jelly/sec)
+4. When ant is full (ANT_CARRY_CAPACITY) or corpse is depleted → auto-return to nearest own hive
+5. At hive: deposit `carrying` into `player_jelly`, ant becomes idle
 
-## 2. Buildings
+**Edge cases:**
+- Corpse decays while ant is walking to it → ant idles
+- Multiple ants harvest same corpse → first-come, shared until depleted
+- Ant killed while carrying → jelly is lost (carried jelly NOT dropped as new corpse)
+- Ant ordered to do something else mid-harvest → cancels harvest, keeps any jelly in `carrying` until it reaches a hive
 
-| Building | Role | HP | Cost | Build Time | Prerequisite |
-|----------|------|-----|------|------------|--------------|
-| **Nest** | HQ, worker production | 500 | — | — | Starting building |
-| **Tunnel** | Expansion, income boost | 200 | 150 | 10s | Nest |
-| **Nursery** | Produces combat units | 250 | 200 | 8s | Nest |
-| **Food Store** | Increases max food capacity | 150 | 100 | 6s | Nest |
-| **Guard Post** | Static defense, ranged attack | 200 | 150 | 8s | Nursery |
-| **Evolution Chamber** | Unlocks upgrades | 200 | 250 | 12s | Nursery |
+**Config:**
+- `HARVEST_RANGE = 1` tile (same as attack range)
+- `HARVEST_RATE = 5` jelly/sec (Bresenham distributed)
+- `ANT_CARRY_CAPACITY = 10` max jelly per trip
 
-### Construction
+### 2. Explicit Attack Command (Simulation)
 
-1. Player selects a building from the build menu and places it on valid tiles.
-2. A BUILD command is issued to a selected worker.
-3. Worker moves to the site and spends build time constructing.
-4. Building appears as "under construction" (reduced HP, non-functional) until complete.
-5. If the worker is killed, construction pauses. Another worker can resume.
+Right-click on an enemy = chase and attack that specific target. Enables micro control and focus-fire.
 
-### Production
+**Flow:**
+1. Player right-clicks an enemy entity → ATTACK command (target_entity_id = enemy)
+2. Ant pathfinds toward target's position
+3. When in attack range: auto-attack system deals damage (existing)
+4. If target moves out of range: ant re-pathfinds to follow
+5. If target dies: ant clears target, becomes idle
 
-- Nest produces Workers.
-- Nursery produces combat units (Soldier, Spitter, Scout, Queen Ant).
-- Production queue: up to 5 units queued per building.
-- A unit-in-progress has a production timer. When complete, it spawns near the building.
+**Shared with auto-attack:**
+- The existing `_auto_attack()` in combat.py handles damage dealing
+- ATTACK command adds *chasing* — the ant actively follows the target
+- Ants with explicit targets prioritize those targets over nearest-enemy auto-attack
 
-## 3. Tech Tree
+**Config:**
+- CommandType.ATTACK = 7 (new command type)
+- Entity.target_entity_id field (tracks chase/harvest target)
 
-```
-Nest (start)
-├── Tunnel (expansion)
-├── Food Store (economy)
-├── Nursery (combat units)
-│   ├── Guard Post (static defense)
-│   └── Evolution Chamber (upgrades)
-│       ├── Hardened Carapace: +20% HP for Soldiers
-│       ├── Acid Potency: +25% damage for Spitters
-│       ├── Tunnel Network: +30% unit speed near Tunnels
-│       └── Queen Ant: unlocks Queen Ant production
-```
+### 3. Context-Sensitive Right-Click (Input)
 
-### Upgrade Mechanics
+Right-click behavior depends on what's under the cursor:
 
-- Upgrades are researched at the Evolution Chamber (one at a time).
-- Each upgrade has a food cost and research time.
-- Upgrades apply globally to all existing and future units of that type.
+| Click target        | Command generated | Condition |
+|---------------------|-------------------|-----------|
+| Enemy unit/building | ATTACK            | Any combat unit selected |
+| Corpse              | HARVEST           | Ant selected |
+| Hive site           | FOUND_HIVE        | Queen selected |
+| Ground              | MOVE              | Any unit selected |
 
-## 4. Combat System
+Requires entity hit-detection under the cursor (check nearest entity within click radius).
 
-### Attack Resolution
+### 4. Game Command Hotkeys (Input)
 
-```python
-def resolve_attack(attacker: Entity, target: Entity, state: GameState):
-    damage = attacker.attack_damage
-    # Apply upgrades
-    damage = apply_damage_modifiers(damage, attacker, state)
-    target.hp -= damage
-    if target.hp <= 0:
-        destroy_entity(target, state)
-```
+| Key | Command | Behavior |
+|-----|---------|----------|
+| N   | SPAWN_ANT | Spawn ant from selected hive (or nearest own hive) |
+| Q   | MERGE_QUEEN | Merge 5 ants at nearest own hive into a queen |
+| H   | FOUND_HIVE | Send selected queen to nearest unclaimed hive site |
 
-- Attacks happen on a cooldown timer (attack_interval ticks per type).
-- Melee: attacker must be adjacent (within 1 tile).
-- Ranged: attacker must be within range (Euclidean distance, integer math).
-- No projectile simulation — ranged attacks hit instantly (keeps it simple and deterministic).
+Hotkeys should show feedback when triggered (flash, sound) and when rejected (insufficient jelly, wrong selection).
 
-### Targeting Priority
+### 5. Combat Visuals & Feedback (Rendering)
 
-When auto-attacking, units prioritize:
-1. Closest enemy unit in aggro range.
-2. If multiple at same distance: lowest HP first (focus fire).
+Improve combat readability so players can micro effectively:
 
-### Building Damage
+- **Attack animation**: Visual pulse/flash when a unit deals damage
+- **Damage feedback**: Brief flash on hit, or floating damage numbers
+- **State clarity**: Visually distinguish idle / moving / attacking / harvesting states
+- **Harvesting visual**: Ant picks up glowing jelly, carries it visibly
+- **Target lines**: Show who is attacking whom (thin line from attacker to target)
 
-- Units can attack buildings.
-- Queen Ant deals 2x damage to buildings (siege role).
-- Destroying the Nest wins the game.
+### 6. Victory/Defeat Screen (Rendering)
 
-## 5. Win Condition
+When `game_over` is True:
 
-**Destroy the enemy Nest.** When a Nest reaches 0 HP, that player loses.
+- Full-screen overlay: "VICTORY" or "DEFEAT"
+- Match stats: game duration, ants spawned, ants killed, jelly harvested
+- Continue watching / Quit options
 
-- Display a victory/defeat screen.
-- Log match stats: game duration, units produced, food gathered, units lost.
+### 7. Selection & Info Panel (Rendering)
 
-## 6. Pheromone Trails (Visual)
+Improve the bottom-of-screen info:
 
-- When ants move, they leave a fading visual trail on the ground.
-- Purely cosmetic in Phase 3 — does not affect gameplay.
-- Trail intensity fades over time (render-side only, not simulation state).
-- Creates an organic, ant-like feel to army movements.
+- Selected unit stats: HP, damage, speed, carrying
+- Multi-select: unit count by type, total HP
+- Available commands for current selection (with hotkey hints)
+- Feedback toast: "Not enough jelly!", "No hive nearby", etc.
+
+---
+
+## Shared Interfaces (Implement First)
+
+These changes must be merged before parallel work begins:
+
+- `CommandType.ATTACK = 7`
+- `Entity.target_entity_id: int = -1` + include in `compute_hash()`
+- Config: `HARVEST_RANGE`, `HARVEST_RATE`, `ANT_CARRY_CAPACITY`
 
 ---
 
 ## Work Split
 
-### Dev A — Game Logic & Balance
-- `src/simulation/combat.py` — attack resolution, damage, targeting
-- `src/simulation/production.py` — unit production queues, building construction
-- `src/simulation/tech.py` — upgrade research, modifier application
-- `src/simulation/entities.py` — expand entity types, unit stats, behavior state machine
-- `src/simulation/commands.py` — new command types (BUILD, PRODUCE, RESEARCH, ATTACK)
-- Balance spreadsheet / config for unit stats
-- Tests for combat math, production timing, tech tree prerequisites
+### Ben — Simulation
 
-### Dev B — UI & Presentation
-- `src/rendering/renderer.py` — unit sprites/shapes per type, building visuals, HP bars
-- `src/rendering/hud.py` — build menu, production queue display, tech tree UI
-- `src/rendering/effects.py` — pheromone trails, attack animations, death effects
-- `src/input/handler.py` — build placement, production hotkeys, attack-move
-- Victory/defeat screen
-- Visual polish and feedback (selection circles, rally points)
+**Branch:** `phase3-simulation`
+
+1. Harvesting system (HARVEST command, tick logic, auto-return)
+2. Explicit ATTACK command (chase + follow + re-pathfind)
+3. Tests for harvesting + attack
+
+### theCoon — UI & Rendering
+
+**Branch:** `phase3-ui`
+
+1. Context-sensitive right-click (entity hit detection, command routing)
+2. Game command hotkeys (N/Q/H)
+3. Combat visuals & feedback (attack animations, damage indicators)
+4. Victory/defeat screen
+5. Selection & info panel improvements
 
 ### Integration Points
 
-- **Entity types & stats**: agree on the full EntityType enum and stat values.
-- **Command types**: new commands need serialization support (Dev B updates networking if needed).
-- **Build menu**: UI needs to know building prerequisites, costs, and available units.
-
-### Merge Strategy
-
-1. Dev A implements combat + production + tech as pure simulation logic with tests.
-2. Dev B implements UI against mock/hardcoded data.
-3. Integration PR: wire UI to real simulation data, play a full match.
-4. Both devs playtest and tweak balance together.
+- **Right-click → commands**: theCoon generates ATTACK/HARVEST commands, Ben's simulation processes them
+- **Entity.state + carrying**: Renderer reads these to show correct visuals
+- **game_over + winner**: Renderer reads these for victory/defeat screen
 
 ---
 
 ## Done Criteria
 
-- [ ] All 5 ant types are implemented with distinct stats and behaviors.
-- [ ] All 6 buildings can be constructed by workers.
-- [ ] Nursery produces combat units with a queue.
-- [ ] Evolution Chamber researches upgrades that affect unit stats.
-- [ ] Combat works: units attack, take damage, die.
-- [ ] Queen Ant deals bonus damage to buildings.
-- [ ] Destroying the Nest triggers victory/defeat.
-- [ ] Tech tree prerequisites are enforced.
-- [ ] Full match playable over network with no desync.
-- [ ] Tests cover combat resolution, production, tech prerequisites.
+- [ ] Ants harvest corpses and carry jelly back to hive
+- [ ] Right-click on enemy = attack-chase; right-click on corpse = harvest
+- [ ] Hotkeys work for spawn ant, merge queen, found hive
+- [ ] Attack visuals show who is fighting whom
+- [ ] Victory/defeat screen displays on game end
+- [ ] Full match playable over network with no desync
+- [ ] Tests cover harvesting, attack command, and integration

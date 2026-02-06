@@ -71,6 +71,7 @@ class Entity:
     jelly_value: int = 0    # jelly dropped on death (corpse value)
     sight: int = ANT_SIGHT  # sight radius in tiles
     cooldown: int = 0       # ticks remaining (e.g. hive spawn cooldown)
+    target_entity_id: int = -1  # entity being targeted (corpse for harvest, enemy for attack)
 
     @property
     def is_moving(self) -> bool:
@@ -173,6 +174,7 @@ class GameState:
             h.update(e.jelly_value.to_bytes(4, "big"))
             h.update(e.sight.to_bytes(4, "big"))
             h.update(e.cooldown.to_bytes(4, "big"))
+            h.update(e.target_entity_id.to_bytes(4, "big", signed=True))
         # Visibility grids
         for pid in range(self.visibility.num_players):
             h.update(self.visibility.get_grid_bytes(pid))

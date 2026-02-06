@@ -63,6 +63,11 @@ WILDLIFE_MAX_BEETLES = 5
 WILDLIFE_MAX_MANTIS = 2
 WILDLIFE_AGGRO_RANGE = 5         # tiles — beetles/mantis chase player entities within this
 
+# --- Harvesting ---
+HARVEST_RANGE = 1             # tiles — how close to corpse to start harvesting
+HARVEST_RATE = 5              # jelly per second (Bresenham distributed across ticks)
+ANT_CARRY_CAPACITY = 10       # max jelly an ant can carry per trip
+
 # --- Economy ---
 STARTING_JELLY = 50
 STARTING_ANTS = 5

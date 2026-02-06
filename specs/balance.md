@@ -15,6 +15,9 @@ All values are starting points, to be tuned through playtesting.
 | Spawn cost         | 10 jelly   |
 | Spawn cooldown     | 2 sec      |
 | Corpse jelly value | 5 jelly    |
+| Carry capacity     | 10 jelly   |
+| Harvest rate       | 5 jelly/sec|
+| Harvest range      | 1 tile     |
 
 ## Queen
 
