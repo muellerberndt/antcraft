@@ -46,6 +46,17 @@ python -m pytest tests/
 python -m flake8 src/
 ```
 
+## Game Design
+
+All game mechanics are defined in `specs/game_mechanics.md` and `specs/balance.md`. These are the source of truth — always consult them before implementing or modifying gameplay systems.
+
+Key mechanics:
+- **Jelly** is the single resource. It comes from passive hive income and harvesting corpses (killed ants/wildlife). There are no map pickups.
+- **Ants** are the only unit. They fight, harvest, and merge into queens.
+- **Queens** are created by merging ants at a hive. Their only purpose is to found new hives at hive sites.
+- **Hives** spawn ants, generate passive jelly income, and are the win condition (lose all hives = eliminated).
+- **Wildlife** (aphids, beetles, mantis) are NPCs that drop jelly-bearing corpses when killed.
+
 ## Architecture Notes
 
 - This is a real-time strategy game — game loop timing and frame-rate independence matter.

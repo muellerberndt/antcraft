@@ -7,6 +7,11 @@
 - Keep modules focused — one responsibility per file.
 - Prefer composition over inheritance for game entities.
 
+## Game Mechanics
+
+- **Always consult `specs/game_mechanics.md` and `specs/balance.md`** before implementing or changing any gameplay system. These specs are the source of truth for how the game works.
+- Do not invent mechanics or make assumptions — if it's not in the specs, ask.
+
 ## Game Development Rules
 
 - **Frame-rate independence:** All movement and timers must use delta-time (`dt`), never raw frame counts.
