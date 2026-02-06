@@ -69,25 +69,28 @@ The shared interfaces PR has been merged. The following are already in place:
 - [x] Renderer draws entity types distinctly (hive=large circle, hive_site=diamond, ant=small circle)
 - [x] Debug overlay shows Jelly + Ant count
 
-## Task 3: A* Pathfinding
+## Task 3: A* Pathfinding — DONE
 
 **File:** `src/simulation/pathfinding.py`
 **Tests:** `tests/test_simulation/test_pathfinding.py`
 
-- [ ] Implement `find_path(tilemap: TileMap, start_x: int, start_y: int, goal_x: int, goal_y: int) -> list[tuple[int, int]]`
-  - Coordinates are tile coordinates (not milli-tiles)
-  - Returns list of (tile_x, tile_y) waypoints, empty list if no path
-  - 8-directional movement
+- [x] Implement `find_path(tilemap, start_x, start_y, goal_x, goal_y) -> list[tuple[int, int]]`
+  - Tile coordinates (not milli-tiles)
+  - Returns waypoints from start (exclusive) to goal (inclusive), empty list if no path
+  - 8-directional movement with diagonal corner-cutting prevention
   - Cardinal cost: 1000, diagonal cost: 1414
-  - Use a binary heap / heapq for the open set
-  - Tie-breaking: deterministic (e.g., prefer lower y, then lower x)
-- [ ] Tests:
-  - Straight-line path on open map
-  - Path around a wall of ROCK tiles
-  - No path when completely blocked
-  - Same inputs always produce same path (determinism)
-  - Diagonal paths cost more than cardinal
-  - Path avoids WATER tiles
+  - Binary heap (heapq) open set
+  - Deterministic tie-breaking: lower f-cost, then lower y, then lower x
+  - Octile distance heuristic (admissible and consistent)
+- [x] Tests (16 passing):
+  - Straight-line paths: horizontal, vertical, diagonal
+  - Path around a wall of ROCK tiles, path through gap in wall
+  - No path: completely blocked, goal is rock, start is rock, start == goal
+  - Determinism: same inputs same path, identical maps same path
+  - Diagonal costs more than cardinal, prefers cardinal when shorter
+  - Path avoids ROCK tiles
+  - No diagonal corner-cutting through rocks
+  - Start position excluded from returned path
 
 ## Task 4: Movement Along Path
 
