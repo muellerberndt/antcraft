@@ -1,6 +1,7 @@
 """Input handler — converts PyGame events to Commands.
 
 Phase 1: click-to-move. The player's ant follows the mouse click.
+Accounts for camera offset when converting screen coords to world coords.
 """
 
 from __future__ import annotations
@@ -24,12 +25,15 @@ class InputHandler:
         events: list[pygame.event.Event],
         state: GameState,
         current_tick: int,
+        camera_x: int = 0,
+        camera_y: int = 0,
     ) -> list[Command]:
         """Process PyGame events and return any Commands generated."""
         commands: list[Command] = []
         for event in events:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                cmd = self._handle_click(event.pos, state, current_tick)
+                cmd = self._handle_click(
+                    event.pos, state, current_tick, camera_x, camera_y)
                 if cmd is not None:
                     commands.append(cmd)
         return commands
@@ -39,12 +43,14 @@ class InputHandler:
         screen_pos: tuple[int, int],
         state: GameState,
         current_tick: int,
+        camera_x: int,
+        camera_y: int,
     ) -> Command | None:
         """Convert a mouse click to a MOVE command for the player's entities."""
-        # Convert screen pixels to milli-tiles
+        # Convert screen pixels to milli-tiles, accounting for camera offset
         px, py = screen_pos
-        target_x = px * MILLI_TILES_PER_TILE // self._tile_size
-        target_y = py * MILLI_TILES_PER_TILE // self._tile_size
+        target_x = (px + camera_x) * MILLI_TILES_PER_TILE // self._tile_size
+        target_y = (py + camera_y) * MILLI_TILES_PER_TILE // self._tile_size
 
         # Find all entities owned by this player
         my_entities = [

@@ -1,6 +1,6 @@
 """Game state machine and lockstep game loop.
 
-Manages the game lifecycle: MENU → CONNECTING → PLAYING → DISCONNECTED.
+Manages the game lifecycle: MENU -> CONNECTING -> PLAYING -> DISCONNECTED.
 Runs the fixed-tick lockstep simulation decoupled from the render frame rate.
 """
 
@@ -13,6 +13,7 @@ from enum import Enum, auto
 import pygame
 
 from src.config import (
+    CAMERA_SCROLL_SPEED,
     FPS,
     HASH_CHECK_INTERVAL,
     INPUT_DELAY_TICKS,
@@ -21,8 +22,7 @@ from src.config import (
     MILLI_TILES_PER_TILE,
     NET_TIMEOUT_DISCONNECT_MS,
     NET_TIMEOUT_WARNING_MS,
-    SCREEN_HEIGHT,
-    SCREEN_WIDTH,
+    TILE_RENDER_SIZE,
     TICK_DURATION_MS,
 )
 from src.input.handler import InputHandler
@@ -31,6 +31,7 @@ from src.rendering.renderer import Renderer
 from src.simulation.commands import Command, CommandType
 from src.simulation.state import GameState
 from src.simulation.tick import advance_tick
+from src.simulation.tilemap import generate_map
 
 logger = logging.getLogger(__name__)
 
@@ -56,15 +57,23 @@ class Game:
         self._player_id = player_id
         self._clock = pygame.time.Clock()
 
-        # Compute tile size to fit the map on screen
-        self._tile_size = min(
-            SCREEN_WIDTH // MAP_WIDTH_TILES,
-            SCREEN_HEIGHT // MAP_HEIGHT_TILES,
-        )
+        # Tile rendering size
+        self._tile_size = TILE_RENDER_SIZE
+
+        # Generate tilemap from seed (deterministic — both peers get the same map)
+        self._tilemap = generate_map(seed, MAP_WIDTH_TILES, MAP_HEIGHT_TILES)
 
         # Simulation
         self._state = GameState(seed=seed)
         self._setup_initial_state()
+
+        # Camera (pixel offset into the map surface)
+        self._camera_x = 0
+        self._camera_y = 0
+        self._max_camera_x = max(0, MAP_WIDTH_TILES * self._tile_size - screen.get_width())
+        self._max_camera_y = max(0, MAP_HEIGHT_TILES * self._tile_size - screen.get_height())
+        # Center camera on player's start position
+        self._center_camera_on_start()
 
         # Lockstep
         self._pending_commands: dict[int, list[Command]] = {}
@@ -78,7 +87,7 @@ class Game:
         self._last_frame_time_ms: int = pygame.time.get_ticks()
 
         # Components
-        self._renderer = Renderer(screen, self._tile_size)
+        self._renderer = Renderer(screen, tilemap=self._tilemap)
         self._input = InputHandler(player_id, self._tile_size)
 
         # Phase
@@ -86,22 +95,23 @@ class Game:
         self._desync_detected = False
         self._desync_tick: int = -1
 
+    def _center_camera_on_start(self) -> None:
+        """Center camera on this player's starting area."""
+        if self._player_id < len(self._tilemap.start_positions):
+            sx, sy = self._tilemap.start_positions[self._player_id]
+            # Convert tile coords to pixel coords, center on screen
+            px = sx * self._tile_size - self._screen.get_width() // 2
+            py = sy * self._tile_size - self._screen.get_height() // 2
+            self._camera_x = max(0, min(px, self._max_camera_x))
+            self._camera_y = max(0, min(py, self._max_camera_y))
+
     def _setup_initial_state(self) -> None:
         """Create starting entities for both players."""
-        map_cx = MAP_WIDTH_TILES * MILLI_TILES_PER_TILE // 2
-        map_cy = MAP_HEIGHT_TILES * MILLI_TILES_PER_TILE // 2
-        offset = 10 * MILLI_TILES_PER_TILE
-
-        self._state.create_entity(
-            player_id=0,
-            x=map_cx - offset,
-            y=map_cy,
-        )
-        self._state.create_entity(
-            player_id=1,
-            x=map_cx + offset,
-            y=map_cy,
-        )
+        for i, (tx, ty) in enumerate(self._tilemap.start_positions):
+            # Convert tile coords to milli-tile center
+            x = tx * MILLI_TILES_PER_TILE + MILLI_TILES_PER_TILE // 2
+            y = ty * MILLI_TILES_PER_TILE + MILLI_TILES_PER_TILE // 2
+            self._state.create_entity(player_id=i, x=x, y=y)
 
     def run(self) -> None:
         """Main game loop. Returns when the game ends."""
@@ -114,6 +124,13 @@ class Game:
                     running = False
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     running = False
+                elif event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
+                    pygame.display.toggle_fullscreen()
+                    # Update camera bounds for new screen size
+                    self._max_camera_x = max(
+                        0, MAP_WIDTH_TILES * self._tile_size - self._screen.get_width())
+                    self._max_camera_y = max(
+                        0, MAP_HEIGHT_TILES * self._tile_size - self._screen.get_height())
 
             if not running:
                 break
@@ -139,14 +156,37 @@ class Game:
 
         self._peer.disconnect()
 
+    def _update_camera(self) -> None:
+        """Scroll camera based on held arrow keys."""
+        keys = pygame.key.get_pressed()
+        dx = 0
+        dy = 0
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            dx -= CAMERA_SCROLL_SPEED
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            dx += CAMERA_SCROLL_SPEED
+        if keys[pygame.K_UP] or keys[pygame.K_w]:
+            dy -= CAMERA_SCROLL_SPEED
+        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+            dy += CAMERA_SCROLL_SPEED
+
+        self._camera_x = max(0, min(self._camera_x + dx, self._max_camera_x))
+        self._camera_y = max(0, min(self._camera_y + dy, self._max_camera_y))
+
     def _update_playing(self, events: list[pygame.event.Event]) -> None:
         """Main gameplay update: process input, lockstep, render."""
         now_ms = pygame.time.get_ticks()
         dt_ms = now_ms - self._last_frame_time_ms
         self._last_frame_time_ms = now_ms
 
-        # --- Input → Commands ---
-        new_commands = self._input.process_events(events, self._state, self._state.tick)
+        # --- Camera ---
+        self._update_camera()
+
+        # --- Input -> Commands ---
+        new_commands = self._input.process_events(
+            events, self._state, self._state.tick,
+            camera_x=self._camera_x, camera_y=self._camera_y,
+        )
         for cmd in new_commands:
             self._pending_commands.setdefault(cmd.tick, []).append(cmd)
 
@@ -180,12 +220,7 @@ class Game:
         self._render(interp)
 
     def _send_pending_commands(self) -> None:
-        """Send commands for ticks we haven't sent yet.
-
-        Only send for ticks that are "locked" — no future input can target them.
-        Input schedules commands INPUT_DELAY_TICKS ahead, so ticks before
-        (current_tick + INPUT_DELAY_TICKS) are safe to finalize.
-        """
+        """Send commands for ticks we haven't sent yet."""
         for tick in range(self._state.tick, self._state.tick + INPUT_DELAY_TICKS):
             if tick not in self._commands_sent_for_tick:
                 cmds = self._pending_commands.get(tick, [])
@@ -269,14 +304,19 @@ class Game:
         if peer_addr:
             debug_info["Peer"] = f"{peer_addr[0]}:{peer_addr[1]}"
 
-        self._renderer.draw(self._state, self._prev_positions, interp, debug_info)
+        self._renderer.draw(
+            self._state, self._prev_positions, interp, debug_info,
+            camera_x=self._camera_x, camera_y=self._camera_y,
+        )
 
     def _draw_connecting(self) -> None:
         """Draw the connecting/waiting screen."""
+        sw = self._screen.get_width()
+        sh = self._screen.get_height()
         self._screen.fill((20, 20, 30))
         font = pygame.font.SysFont("monospace", 24)
         text = font.render("Waiting for opponent to connect...", True, (200, 200, 200))
-        rect = text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+        rect = text.get_rect(center=(sw // 2, sh // 2))
         self._screen.blit(text, rect)
 
         sub_font = pygame.font.SysFont("monospace", 16)
@@ -286,16 +326,18 @@ class Game:
         else:
             info = "Listening for connections..."
         sub_text = sub_font.render(info, True, (150, 150, 150))
-        sub_rect = sub_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 40))
+        sub_rect = sub_text.get_rect(center=(sw // 2, sh // 2 + 40))
         self._screen.blit(sub_text, sub_rect)
 
         pygame.display.flip()
 
     def _draw_disconnected(self) -> None:
         """Draw the disconnected screen."""
+        sw = self._screen.get_width()
+        sh = self._screen.get_height()
         self._screen.fill((40, 20, 20))
         font = pygame.font.SysFont("monospace", 24)
         text = font.render("Disconnected from peer", True, (220, 80, 60))
-        rect = text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+        rect = text.get_rect(center=(sw // 2, sh // 2))
         self._screen.blit(text, rect)
         pygame.display.flip()

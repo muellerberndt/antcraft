@@ -1,9 +1,10 @@
 """Shared constants for AntCraft. All game-wide configuration lives here."""
 
 # --- Display ---
-SCREEN_WIDTH = 1280
-SCREEN_HEIGHT = 720
+SCREEN_WIDTH = 1600
+SCREEN_HEIGHT = 900
 FPS = 60
+TILE_RENDER_SIZE = 16  # pixels per tile for rendering
 
 # --- Simulation ---
 TICK_RATE = 10  # simulation ticks per second

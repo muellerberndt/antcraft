@@ -1,8 +1,8 @@
-"""Placeholder renderer for Phase 1.
+"""Game renderer — draws tiles, entities, and debug overlay.
 
-Draws entities as colored circles on a blank background.
-Shows debug overlay with tick, connection status, and FPS.
-Interpolates entity positions between ticks for smooth movement.
+Renders the tile map as a pre-generated surface, then draws entities
+on top with position interpolation. Supports a camera offset for
+scrolling the viewport across the map.
 """
 
 from __future__ import annotations
@@ -15,10 +15,10 @@ from src.config import (
     COLOR_PLAYER_1,
     COLOR_PLAYER_2,
     MILLI_TILES_PER_TILE,
-    SCREEN_HEIGHT,
-    SCREEN_WIDTH,
+    TILE_RENDER_SIZE,
 )
-from src.simulation.state import Entity, GameState
+from src.simulation.state import Entity, EntityType, GameState
+from src.simulation.tilemap import TileMap, TileType
 
 PLAYER_COLORS = {0: COLOR_PLAYER_1, 1: COLOR_PLAYER_2}
 ANT_RADIUS = 8
@@ -27,10 +27,53 @@ ANT_RADIUS = 8
 class Renderer:
     """Draws the game state to the screen."""
 
-    def __init__(self, screen: pygame.Surface, tile_size: int) -> None:
+    def __init__(self, screen: pygame.Surface, tilemap: TileMap | None = None) -> None:
         self._screen = screen
-        self._tile_size = tile_size
+        self._tile_size = TILE_RENDER_SIZE
         self._font = pygame.font.SysFont("monospace", 16)
+        self._map_surface: pygame.Surface | None = None
+        if tilemap is not None:
+            self._build_map_surface(tilemap)
+
+    def _build_map_surface(self, tilemap: TileMap) -> None:
+        """Pre-render the entire tile map to a surface."""
+        ts = self._tile_size
+        w = tilemap.width * ts
+        h = tilemap.height * ts
+        self._map_surface = pygame.Surface((w, h))
+
+        for y in range(tilemap.height):
+            for x in range(tilemap.width):
+                tile = tilemap.get_tile(x, y)
+                # Deterministic per-tile color variation using a hash
+                hval = ((x * 374761393 + y * 668265263) ^ 0xB55A4F09) & 0xFFFFFFFF
+                variation = (hval % 21) - 10  # -10 to +10
+                fine = ((hval >> 16) % 11) - 5  # -5 to +5 secondary
+
+                if tile == TileType.DIRT:
+                    r = _clamp(101 + variation, 0, 255)
+                    g = _clamp(76 + variation + fine, 0, 255)
+                    b = _clamp(38 + variation // 2, 0, 255)
+                    color = (r, g, b)
+                    edge_color = (_clamp(r - 12, 0, 255),
+                                  _clamp(g - 12, 0, 255),
+                                  _clamp(b - 8, 0, 255))
+                else:  # ROCK
+                    gray = _clamp(78 + variation, 0, 255)
+                    color = (gray, _clamp(gray - 3, 0, 255), _clamp(gray - 1, 0, 255))
+                    edge_color = (_clamp(gray - 15, 0, 255),
+                                  _clamp(gray - 18, 0, 255),
+                                  _clamp(gray - 14, 0, 255))
+
+                rect = pygame.Rect(x * ts, y * ts, ts, ts)
+                pygame.draw.rect(self._map_surface, color, rect)
+                # Subtle edge shading (bottom and right) for depth
+                pygame.draw.line(self._map_surface, edge_color,
+                                 (x * ts, (y + 1) * ts - 1),
+                                 ((x + 1) * ts - 1, (y + 1) * ts - 1))
+                pygame.draw.line(self._map_surface, edge_color,
+                                 ((x + 1) * ts - 1, y * ts),
+                                 ((x + 1) * ts - 1, (y + 1) * ts - 1))
 
     def draw(
         self,
@@ -38,39 +81,45 @@ class Renderer:
         prev_entities: list[tuple[int, int]] | None,
         interp: float,
         debug_info: dict[str, str],
+        camera_x: int = 0,
+        camera_y: int = 0,
     ) -> None:
         """Draw one frame.
 
         Args:
             state: Current game state.
-            prev_entities: Previous tick positions [(x,y), ...] for interpolation.
-                           Same order as state.entities. None to skip interpolation.
-            interp: Interpolation factor [0.0, 1.0] between prev and current tick.
-            debug_info: Key-value pairs to show in debug overlay.
+            prev_entities: Previous tick positions for interpolation.
+            interp: Interpolation factor [0.0, 1.0].
+            debug_info: Key-value pairs for debug overlay.
+            camera_x: Camera offset in pixels (horizontal).
+            camera_y: Camera offset in pixels (vertical).
         """
         self._screen.fill(COLOR_BG)
-        self._draw_grid()
-        self._draw_entities(state, prev_entities, interp)
+        self._draw_tiles(camera_x, camera_y)
+        self._draw_entities(state, prev_entities, interp, camera_x, camera_y)
         self._draw_debug(debug_info)
         pygame.display.flip()
 
-    def _draw_grid(self) -> None:
-        """Draw a subtle grid for spatial reference."""
-        grid_color = (55, 45, 35)
-        for x in range(0, SCREEN_WIDTH, self._tile_size):
-            pygame.draw.line(self._screen, grid_color, (x, 0), (x, SCREEN_HEIGHT))
-        for y in range(0, SCREEN_HEIGHT, self._tile_size):
-            pygame.draw.line(self._screen, grid_color, (0, y), (SCREEN_WIDTH, y))
+    def _draw_tiles(self, camera_x: int, camera_y: int) -> None:
+        """Blit the pre-rendered map surface with camera offset."""
+        if self._map_surface is None:
+            return
+        sw = self._screen.get_width()
+        sh = self._screen.get_height()
+        # Source rect: which part of the map to show
+        src = pygame.Rect(camera_x, camera_y, sw, sh)
+        self._screen.blit(self._map_surface, (0, 0), src)
 
     def _draw_entities(
         self,
         state: GameState,
         prev_positions: list[tuple[int, int]] | None,
         interp: float,
+        camera_x: int,
+        camera_y: int,
     ) -> None:
         for i, entity in enumerate(state.entities):
             if prev_positions is not None and i < len(prev_positions):
-                # Interpolate between previous and current position
                 px, py = prev_positions[i]
                 draw_x = int(px + (entity.x - px) * interp)
                 draw_y = int(py + (entity.y - py) * interp)
@@ -78,19 +127,26 @@ class Renderer:
                 draw_x = entity.x
                 draw_y = entity.y
 
-            # Convert milli-tiles to screen pixels
-            sx = draw_x * self._tile_size // MILLI_TILES_PER_TILE
-            sy = draw_y * self._tile_size // MILLI_TILES_PER_TILE
+            # Convert milli-tiles to screen pixels, apply camera offset
+            sx = draw_x * self._tile_size // MILLI_TILES_PER_TILE - camera_x
+            sy = draw_y * self._tile_size // MILLI_TILES_PER_TILE - camera_y
+
+            # Cull off-screen entities
+            sw = self._screen.get_width()
+            sh = self._screen.get_height()
+            if sx < -ANT_RADIUS or sx > sw + ANT_RADIUS:
+                continue
+            if sy < -ANT_RADIUS or sy > sh + ANT_RADIUS:
+                continue
 
             color = PLAYER_COLORS.get(entity.player_id, (200, 200, 200))
             pygame.draw.circle(self._screen, color, (sx, sy), ANT_RADIUS)
-            # Draw a darker outline
             pygame.draw.circle(self._screen, (0, 0, 0), (sx, sy), ANT_RADIUS, 2)
 
             # Draw target indicator if moving
             if entity.is_moving:
-                tx = entity.target_x * self._tile_size // MILLI_TILES_PER_TILE
-                ty = entity.target_y * self._tile_size // MILLI_TILES_PER_TILE
+                tx = entity.target_x * self._tile_size // MILLI_TILES_PER_TILE - camera_x
+                ty = entity.target_y * self._tile_size // MILLI_TILES_PER_TILE - camera_y
                 target_color = tuple(c // 2 for c in color)
                 pygame.draw.circle(self._screen, target_color, (tx, ty), 4)
                 pygame.draw.line(self._screen, target_color, (sx, sy), (tx, ty), 1)
@@ -102,3 +158,11 @@ class Renderer:
             surface = self._font.render(text, True, COLOR_DEBUG_TEXT)
             self._screen.blit(surface, (5, y))
             y += 20
+
+
+def _clamp(val: int, lo: int, hi: int) -> int:
+    if val < lo:
+        return lo
+    if val > hi:
+        return hi
+    return val

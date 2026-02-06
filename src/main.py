@@ -4,6 +4,8 @@ Usage:
     Host a game:    python -m src.main --host 23456
     Join a game:    python -m src.main --join 127.0.0.1:23456
     Local test:     python -m src.main --local
+    Fullscreen:     python -m src.main --local --fullscreen
+    Toggle fullscreen in-game: F11
 """
 
 from __future__ import annotations
@@ -15,7 +17,7 @@ import time
 
 import pygame
 
-from src.config import FPS, SCREEN_HEIGHT, SCREEN_WIDTH
+from src.config import SCREEN_HEIGHT, SCREEN_WIDTH
 from src.game import Game
 
 
@@ -38,6 +40,10 @@ def main() -> None:
         "-v", "--verbose", action="store_true",
         help="Enable debug logging",
     )
+    parser.add_argument(
+        "--fullscreen", action="store_true",
+        help="Start in fullscreen mode (toggle with F11 in-game)",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -46,7 +52,10 @@ def main() -> None:
     )
 
     pygame.init()
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    if args.fullscreen:
+        screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+    else:
+        screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("AntCraft")
 
     if args.local:

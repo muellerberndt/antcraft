@@ -21,33 +21,39 @@ The shared interfaces PR has been merged. The following are already in place:
 
 ---
 
-## Task 1: Tile Map & Procedural Generation
+## Task 1: Tile Map & Procedural Generation — DONE
 
 **File:** `src/simulation/tilemap.py`
 **Tests:** `tests/test_simulation/test_tilemap.py`
 
-- [ ] Define `TileType(IntEnum)`: DIRT=0, ROCK=1, WATER=2
-  - No FOOD tiles — jelly comes from corpses and passive hive income
-- [ ] Implement `TileMap` class:
+- [x] Define `TileType(IntEnum)`: DIRT=0, ROCK=1
+  - Two tile types only: DIRT (walkable) and ROCK (impassable)
+- [x] Implement `TileMap` class:
   - `width: int`, `height: int`
   - `tiles: list[int]` (flat array, row-major, `tiles[y * width + x]`)
-  - `get_tile(x, y) -> TileType`
+  - `get_tile(x, y) -> TileType` (out-of-bounds returns ROCK)
   - `set_tile(x, y, tile_type)`
-  - `is_walkable(x, y) -> bool` (DIRT is walkable, ROCK and WATER are not)
-- [ ] Implement `generate_map(seed: int, width: int, height: int) -> TileMap`
-  - Use a deterministic LCG seeded from the shared seed — NO `random` module
-  - Generate rock/water clusters via cellular automata (integer math)
-  - Mirror map for fairness (symmetrical for all players)
-  - Place **hive sites** (neutral expansion points) at fixed symmetrical locations
-  - Guarantee each player's starting area is clear of obstacles
-  - Place wildlife spawn points
-- [ ] Tests:
+  - `is_walkable(x, y) -> bool` (DIRT is walkable, ROCK is not)
+  - `start_positions: list[tuple[int, int]]` — player spawn tile coords
+  - `hive_site_positions: list[tuple[int, int]]` — expansion point tile coords
+- [x] Implement `generate_map(seed: int, width: int, height: int) -> TileMap`
+  - Deterministic LCG — NO `random` module
+  - Cellular automata (4 iterations, 5-neighbor rule) for organic rock formations
+  - Horizontally mirrored for 2-player fairness
+  - Rock border around map edges
+  - Player starting areas cleared (radius 6)
+  - Hive sites at symmetrical locations, cleared (radius 3)
+  - All clearings applied symmetrically via `_clear_symmetric()`
+- [x] Tests (17 passing):
   - Same seed → identical map
   - Different seeds → different maps
+  - Map is horizontally symmetric
   - Starting areas are walkable
-  - Map is symmetric
-  - `is_walkable` correct for each tile type
-  - Hive sites are placed symmetrically
+  - Start positions are symmetric
+  - Border is rock
+  - Hive sites placed and walkable
+  - Both tile types present
+  - Determinism verified across multiple seeds
 
 ## Task 2: Integrate TileMap + Jelly Economy into GameState
 
