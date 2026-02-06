@@ -13,12 +13,12 @@ import pygame
 
 from src.config import (
     COLOR_BG,
-    COLOR_DEBUG_TEXT,
     COLOR_PLAYER_1,
     COLOR_PLAYER_2,
     MILLI_TILES_PER_TILE,
     TILE_RENDER_SIZE,
 )
+from src.rendering.hud import HUD
 from src.simulation.state import Entity, EntityState, EntityType, GameState
 from src.simulation.tilemap import TileMap, TileType
 from src.simulation.visibility import UNEXPLORED, FOG, VISIBLE
@@ -41,8 +41,14 @@ class Renderer:
         self._fog_surface = pygame.Surface(
             (screen.get_width(), screen.get_height()), pygame.SRCALPHA,
         )
+        self._hud: HUD | None = None
         if tilemap is not None:
             self._build_map_surface(tilemap)
+            self._hud = HUD(screen, tilemap)
+
+    @property
+    def hud(self) -> HUD | None:
+        return self._hud
 
     def _build_map_surface(self, tilemap: TileMap) -> None:
         """Pre-render the entire tile map to a surface."""
@@ -106,7 +112,11 @@ class Renderer:
         self._draw_fog(state, camera_x, camera_y, player_id)
         if drag_rect:
             self._draw_drag_rect(drag_rect)
-        self._draw_debug(debug_info)
+        if self._hud:
+            self._hud.draw(
+                state, player_id, camera_x, camera_y,
+                self._tile_size, selected_ids or set(), debug_info,
+            )
         pygame.display.flip()
 
     def _draw_tiles(self, camera_x: int, camera_y: int) -> None:
@@ -266,13 +276,6 @@ class Renderer:
             fill = max(1, entity.hp * bar_w // entity.max_hp)
             pygame.draw.rect(s, (0, 200, 0), (bx, by, fill, bar_h))
 
-    def _draw_debug(self, debug_info: dict[str, str]) -> None:
-        y = 5
-        for key, value in debug_info.items():
-            text = f"{key}: {value}"
-            surface = self._font.render(text, True, COLOR_DEBUG_TEXT)
-            self._screen.blit(surface, (5, y))
-            y += 20
 
 
 def _draw_hexagon(

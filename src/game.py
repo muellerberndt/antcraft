@@ -266,9 +266,26 @@ class Game:
         # --- Camera ---
         self._update_camera()
 
+        # --- Minimap click -> camera jump (consume event) ---
+        filtered_events = []
+        hud = self._renderer.hud
+        for event in events:
+            if (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1
+                    and hud is not None):
+                tile = hud.screen_to_tile(event.pos[0], event.pos[1])
+                if tile is not None:
+                    # Center camera on clicked tile
+                    tx, ty = tile
+                    px = tx * self._tile_size - self._screen.get_width() // 2
+                    py = ty * self._tile_size - self._screen.get_height() // 2
+                    self._camera_x = max(0, min(px, self._max_camera_x))
+                    self._camera_y = max(0, min(py, self._max_camera_y))
+                    continue  # don't pass to input handler
+            filtered_events.append(event)
+
         # --- Input -> Commands ---
         new_commands = self._input.process_events(
-            events, self._state, self._state.tick,
+            filtered_events, self._state, self._state.tick,
             camera_x=self._camera_x, camera_y=self._camera_y,
         )
         for cmd in new_commands:

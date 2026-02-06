@@ -108,40 +108,30 @@ Already done in Task 5:
 - [x] All commands use `tick = current_tick + INPUT_DELAY_TICKS`
 - [x] Command creation uses selected entity IDs from SelectionManager
 
-Remaining:
-- [ ] Right click context-sensitive commands:
-  - If clicking on a CORPSE entity and ants are selected → HARVEST command (target_entity_id = corpse ID)
-  - If clicking on a HIVE_SITE and a QUEEN is selected → FOUND_HIVE command
-- [ ] Keyboard:
-  - Q key (at hive): SPAWN_ANT command (target_entity_id = hive)
-  - M key (at hive with ants selected): MERGE_QUEEN command
-  - ESC: deselect all (or quit if nothing selected)
 
-## Task 7: HUD & Minimap
+## Task 7: HUD & Minimap — DONE
 
-**File:** `src/rendering/hud.py`
-**Tests:** minimal (mostly visual)
+**Files:** `src/rendering/hud.py`, `src/rendering/renderer.py`, `src/game.py`
 
-- [ ] **Minimap** (bottom-right or bottom-left corner):
-  - Render full map at tiny scale (`MAP_WIDTH_TILES` pixels wide or smaller)
-  - Terrain colors (simplified: brown/gray/blue dots)
-  - Friendly unit dots (player color)
-  - Enemy unit dots (if visible, not in fog)
-  - Hive icons for all known hives
-  - Hive site markers (neutral)
+- [x] **Minimap** (bottom-right corner, 200x200px):
+  - Pre-rendered terrain surface (brown=dirt, gray=rock, 2px per tile)
+  - Fog of war overlay (UNEXPLORED=dark, FOG=semi-transparent)
+  - Friendly unit dots (player color), enemy dots (only if VISIBLE)
+  - Hive icons (larger colored squares), hive site markers (gray)
+  - Wildlife dots (yellow-green, only if VISIBLE)
   - White rectangle showing current camera viewport
-  - Click on minimap → set camera position
-  - Fog of war overlay on minimap
-- [ ] **Resource display** (top of screen):
-  - Show jelly icon + `player_jelly[player_id]` count
-  - Show ant count for current player
-- [ ] **Selection info** (bottom of screen, optional):
-  - Number of selected units
-  - HP bars if single selection
-  - Unit type (ant/queen) if single selection
-- [ ] **Debug overlay** (existing, expand):
-  - Keep tick, FPS, player, connection status
-  - Add: camera position, selected count, jelly amount
+  - Click on minimap jumps camera to that position (consumed before input handler)
+  - 1px dark border
+- [x] **Resource display** (top-right corner):
+  - Jelly count (gold text) + ant count (white text)
+  - Semi-transparent dark background bar
+- [x] **Selection info** (bottom-left):
+  - Shows "N Ants selected" / "N Queens selected" with background
+  - HP bar for single unit selection
+- [x] **Debug overlay** (top-left, moved from renderer to HUD):
+  - Tick, Player, Jelly, Ants, FPS, Connected, Selected count
+- [x] HUD class owns all fonts and overlay rendering
+- [x] Wired into renderer draw pipeline (after fog, before flip)
 
 ---
 
