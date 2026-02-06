@@ -363,8 +363,8 @@ def _draw_ant(
                 (sx + dx, head_y - head_r - 7),
             ])
 
-    # Jelly indicator
-    if entity.state == EntityState.HARVESTING or entity.carrying > 0:
+    # Jelly indicator — only show when actually carrying jelly
+    if entity.carrying > 0:
         pygame.draw.circle(surface, (240, 220, 60), (sx, sy + body_h + 2), 3)
 
 

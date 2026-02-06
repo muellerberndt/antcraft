@@ -37,6 +37,10 @@
 - `tests/` — mirrors `src/` structure.
 - `assets/` — sprites, sounds, maps (tracked via Git LFS if large).
 
+## Hotkeys
+
+- When adding or changing keyboard shortcuts, always update `docs/hotkeys.md` to keep the manual in sync.
+
 ## Commit Practices
 
 - Small, focused commits with clear messages.

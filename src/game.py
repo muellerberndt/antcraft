@@ -247,13 +247,13 @@ class Game:
         keys = pygame.key.get_pressed()
         dx = 0
         dy = 0
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+        if keys[pygame.K_LEFT]:
             dx -= CAMERA_SCROLL_SPEED
-        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+        if keys[pygame.K_RIGHT]:
             dx += CAMERA_SCROLL_SPEED
-        if keys[pygame.K_UP] or keys[pygame.K_w]:
+        if keys[pygame.K_UP]:
             dy -= CAMERA_SCROLL_SPEED
-        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+        if keys[pygame.K_DOWN]:
             dy += CAMERA_SCROLL_SPEED
 
         self._camera_x = max(0, min(self._camera_x + dx, self._max_camera_x))

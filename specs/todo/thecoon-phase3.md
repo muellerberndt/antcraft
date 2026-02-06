@@ -18,47 +18,33 @@ Shared interfaces merged before parallel work begins:
 
 ---
 
-## Task 1: Context-Sensitive Right-Click
+## Task 1: Context-Sensitive Right-Click — DONE
 
 **File:** `src/input/handler.py`
 
-Currently right-click always issues MOVE. Make it context-sensitive:
+Default right-click auto-detects target entity under cursor:
+- [x] Right-click enemy → ATTACK — **works**
+- [x] Right-click corpse → HARVEST — **WIP** (extraction works, return-to-hive buggy)
+- [x] Right-click hive site → FOUND_HIVE — **untested**
+- [x] Right-click ground → MOVE — **works**
 
-- [ ] Entity hit detection: find the nearest entity under the cursor within click radius
-  - Check all visible entities, find closest to click position in milli-tiles
-  - Use SELECTION_THRESHOLD distance (same as left-click select)
-- [ ] Right-click routing based on entity under cursor:
-  - **Enemy entity** (player_id != ours, attackable type): → `CommandType.ATTACK` with `target_entity_id`
-  - **Corpse** (EntityType.CORPSE): → `CommandType.HARVEST` with `target_entity_id`
-  - **Hive site** (EntityType.HIVE_SITE) + queen selected: → `CommandType.FOUND_HIVE` with `target_entity_id`
-  - **Ground** (no entity hit): → `CommandType.MOVE` (existing behavior)
-- [ ] Filter selection for command validity:
-  - ATTACK: only include entities with damage > 0 in entity_ids
-  - HARVEST: only include ANT entities in entity_ids
-  - FOUND_HIVE: only include QUEEN entities in entity_ids
-- [ ] Visual cursor change based on hover target (optional):
-  - Sword cursor over enemies
-  - Harvest cursor over corpses
-  - Flag cursor over hive sites
+Dedicated hotkey modes (press key, then right-click):
+- [x] **A** → Attack mode — **works**
+- [x] **M** → Move mode — **works**
+- [x] **E** → Harvest mode — **WIP**
+- [x] **F** → Found hive mode — **untested**
 
-## Task 2: Game Command Hotkeys
+- [x] Entity_ids filtered by command validity
+- [ ] Visual cursor change based on hover target (optional)
+
+## Task 2: Game Command Hotkeys — DONE
 
 **File:** `src/input/handler.py`
 
-Add keyboard shortcuts for game commands:
-
-- [ ] **N key** → SPAWN_ANT:
-  - If a hive is selected: spawn from that hive
-  - If no hive selected: find nearest own hive to camera center
-  - Generate `Command(SPAWN_ANT, target_entity_id=hive_id)`
-- [ ] **Q key** → MERGE_QUEEN:
-  - Find nearest own hive to selected ants
-  - Generate `Command(MERGE_QUEEN, target_entity_id=hive_id, entity_ids=selected_ants)`
-- [ ] **H key** → FOUND_HIVE:
-  - Only works with queen(s) selected
-  - Find nearest unclaimed hive site
-  - Generate `Command(FOUND_HIVE, entity_ids=selected_queens, target_entity_id=site_id)`
-- [ ] Update `docs/hotkeys.md` with new bindings
+- [x] **N key** → SPAWN_ANT — **works**
+- [x] **Q key** → MERGE_QUEEN — **untested**
+- [x] **H key** → FOUND_HIVE — **untested**
+- [x] Updated `docs/hotkeys.md` with all new bindings
 
 ## Task 3: Combat Visuals & Feedback
 

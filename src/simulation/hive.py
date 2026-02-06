@@ -73,6 +73,18 @@ def _apply_passive_income(state: GameState) -> None:
 
 # -- Ant spawning -------------------------------------------------------------
 
+_SPAWN_DIRS = [
+    (0, -MILLI_TILES_PER_TILE),                        # N
+    (MILLI_TILES_PER_TILE, -MILLI_TILES_PER_TILE),     # NE
+    (MILLI_TILES_PER_TILE, 0),                          # E
+    (MILLI_TILES_PER_TILE, MILLI_TILES_PER_TILE),       # SE
+    (0, MILLI_TILES_PER_TILE),                          # S
+    (-MILLI_TILES_PER_TILE, MILLI_TILES_PER_TILE),      # SW
+    (-MILLI_TILES_PER_TILE, 0),                          # W
+    (-MILLI_TILES_PER_TILE, -MILLI_TILES_PER_TILE),     # NW
+]
+
+
 def _tick_spawn_cooldowns(state: GameState) -> None:
     """Decrement hive cooldowns and spawn ants when cooldown reaches 0."""
     spawns: list[tuple[int, int, int]] = []  # (player_id, x, y)
@@ -82,11 +94,12 @@ def _tick_spawn_cooldowns(state: GameState) -> None:
             if entity.cooldown == 0:
                 spawns.append((entity.player_id, entity.x, entity.y))
 
-    for player_id, x, y in spawns:
+    for player_id, hx, hy in spawns:
+        sx, sy = _pick_spawn_pos(state, hx, hy)
         state.create_entity(
             player_id=player_id,
-            x=x,
-            y=y,
+            x=sx,
+            y=sy,
             entity_type=EntityType.ANT,
             speed=ANT_SPEED,
             hp=ANT_HP,
@@ -95,6 +108,19 @@ def _tick_spawn_cooldowns(state: GameState) -> None:
             jelly_value=ANT_CORPSE_JELLY,
             sight=ANT_SIGHT,
         )
+
+
+def _pick_spawn_pos(state: GameState, hx: int, hy: int) -> tuple[int, int]:
+    """Pick a walkable position adjacent to the hive for spawning."""
+    start = state.next_random(8)
+    for i in range(8):
+        dx, dy = _SPAWN_DIRS[(start + i) % 8]
+        nx, ny = hx + dx, hy + dy
+        tile_x = nx // MILLI_TILES_PER_TILE
+        tile_y = ny // MILLI_TILES_PER_TILE
+        if state.tilemap.is_walkable(tile_x, tile_y):
+            return nx, ny
+    return hx, hy
 
 
 # -- Founding ------------------------------------------------------------------

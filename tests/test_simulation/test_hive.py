@@ -209,8 +209,10 @@ class TestSpawnAnt:
         assert new_ant.damage == ANT_DAMAGE
         assert new_ant.jelly_value == ANT_CORPSE_JELLY
         assert new_ant.sight == ANT_SIGHT
-        assert new_ant.x == hive.x
-        assert new_ant.y == hive.y
+        # Ant spawns adjacent to hive (within 1 tile)
+        dx = abs(new_ant.x - hive.x)
+        dy = abs(new_ant.y - hive.y)
+        assert dx <= MILLI_TILES_PER_TILE and dy <= MILLI_TILES_PER_TILE
 
 
 class TestMergeQueen:
