@@ -14,6 +14,12 @@ from math import isqrt
 from src.config import MILLI_TILES_PER_TILE, SEPARATION_FORCE, SEPARATION_RADIUS
 from src.simulation.combat import process_combat
 from src.simulation.commands import Command, CommandType
+from src.simulation.hive import (
+    handle_found_hive,
+    handle_merge_queen,
+    handle_spawn_ant,
+    process_hive_mechanics,
+)
 from src.simulation.pathfinding import find_path
 from src.simulation.state import GameState
 
@@ -29,6 +35,7 @@ def advance_tick(state: GameState, commands: list[Command]) -> None:
     _update_movement(state)
     _apply_separation(state)
     process_combat(state)
+    process_hive_mechanics(state)
     # Recompute fog of war for both players
     state.visibility.update(state.entities, 0)
     state.visibility.update(state.entities, 1)
@@ -42,6 +49,12 @@ def _process_commands(state: GameState, commands: list[Command]) -> None:
             _handle_move(state, cmd)
         elif cmd.command_type == CommandType.STOP:
             _handle_stop(state, cmd)
+        elif cmd.command_type == CommandType.SPAWN_ANT:
+            handle_spawn_ant(state, cmd)
+        elif cmd.command_type == CommandType.MERGE_QUEEN:
+            handle_merge_queen(state, cmd)
+        elif cmd.command_type == CommandType.FOUND_HIVE:
+            handle_found_hive(state, cmd)
 
 
 def _handle_move(state: GameState, cmd: Command) -> None:

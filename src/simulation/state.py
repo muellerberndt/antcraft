@@ -70,6 +70,7 @@ class Entity:
     carrying: int = 0       # jelly being carried
     jelly_value: int = 0    # jelly dropped on death (corpse value)
     sight: int = ANT_SIGHT  # sight radius in tiles
+    cooldown: int = 0       # ticks remaining (e.g. hive spawn cooldown)
 
     @property
     def is_moving(self) -> bool:
@@ -171,6 +172,7 @@ class GameState:
             h.update(e.carrying.to_bytes(4, "big"))
             h.update(e.jelly_value.to_bytes(4, "big"))
             h.update(e.sight.to_bytes(4, "big"))
+            h.update(e.cooldown.to_bytes(4, "big"))
         # Visibility grids
         for pid in range(self.visibility.num_players):
             h.update(self.visibility.get_grid_bytes(pid))

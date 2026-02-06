@@ -35,6 +35,8 @@ QUEEN_MERGE_COST = 5      # ants consumed to create a queen
 # --- Hive ---
 HIVE_HP = 200
 HIVE_PASSIVE_INCOME = 2   # jelly per second (converted to per-tick in sim)
+MERGE_RANGE = 3           # tiles — ants must be this close to hive to merge
+FOUND_HIVE_RANGE = 1      # tiles — queen must be this close to site to found
 
 # --- Wildlife ---
 APHID_HP = 5

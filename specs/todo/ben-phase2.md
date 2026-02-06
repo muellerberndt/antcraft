@@ -165,35 +165,40 @@ The shared interfaces PR has been merged. The following are already in place:
   - Depleted corpse is removed
   - Multiple ants can harvest same corpse
 
-## Task 7: Hive Mechanics (Spawning, Income)
+## Task 7: Hive Mechanics (Spawning, Income) — DONE
 
-**File:** `src/simulation/tick.py` (extend `advance_tick`)
+**File:** `src/simulation/hive.py`
 **Tests:** `tests/test_simulation/test_hive.py`
 
-- [ ] Passive jelly income:
-  - Each HIVE entity generates `HIVE_PASSIVE_INCOME / TICK_RATE` jelly per tick
-  - Add to `player_jelly[player_id]`
-- [ ] SPAWN_ANT command:
-  - Target a HIVE entity (via `target_entity_id`)
-  - Deduct `ANT_SPAWN_COST` from player_jelly
-  - After `ANT_SPAWN_COOLDOWN` ticks, create a new ANT entity near the hive
-  - Reject if insufficient jelly
-- [ ] MERGE_QUEEN command:
-  - Select `QUEEN_MERGE_COST` ants at a hive
-  - Remove those ants, create one QUEEN entity
-  - Queen has QUEEN_HP, QUEEN_SPEED, no damage
-- [ ] FOUND_HIVE command:
-  - Queen moves to a HIVE_SITE entity
-  - When queen arrives: remove queen, convert HIVE_SITE to HIVE (set player_id)
-- [ ] Win condition:
-  - Player is eliminated when all their HIVE entities are destroyed
-  - Last player with >=1 hive wins → set `game_over=True`, `winner=player_id`
-- [ ] Tests:
-  - Passive income accumulates
-  - Ant spawns after cooldown, jelly deducted
-  - Queen merges from ants
-  - Queen founds hive at site
-  - Player eliminated when last hive destroyed
+- [x] Passive jelly income:
+  - Bresenham-style distribution: HIVE_PASSIVE_INCOME (2) jelly/sec across TICK_RATE ticks
+  - Multiple hives stack income for the same player
+- [x] SPAWN_ANT command:
+  - Target a HIVE (via `target_entity_id`), deduct ANT_SPAWN_COST from player_jelly
+  - Set hive.cooldown = ANT_SPAWN_COOLDOWN; ant spawns at hive when cooldown reaches 0
+  - Rejected if: insufficient jelly, hive already spawning, wrong player, not a hive
+- [x] MERGE_QUEEN command:
+  - Validate QUEEN_MERGE_COST ants within MERGE_RANGE (3 tiles) of own hive
+  - Remove ants, create QUEEN (QUEEN_HP, QUEEN_SPEED, damage=0, QUEEN_SIGHT)
+  - Rejected if: too few ants, ants too far, wrong player
+- [x] FOUND_HIVE command:
+  - Pathfind queen to HIVE_SITE, set state=FOUNDING
+  - Each tick `_check_founding` detects arrival within FOUND_HIVE_RANGE (1 tile)
+  - On arrival: remove queen + site, create new HIVE for player
+- [x] Win condition:
+  - Player eliminated when all HIVE entities destroyed
+  - Last player with ≥1 hive wins → game_over=True, winner=player_id
+  - Simultaneous elimination → draw (winner=-1)
+- [x] Data model: added `cooldown: int = 0` to Entity, included in compute_hash
+- [x] Config: added MERGE_RANGE=3, FOUND_HIVE_RANGE=1
+- [x] Tick pipeline: `commands → movement → separation → combat → hive mechanics → fog of war → tick++`
+- [x] Tests (26 passing):
+  - Income: sums correctly, hive generates jelly, multiple hives stack, neutral sites no income
+  - Spawn: deducts jelly, sets cooldown, ant appears after cooldown, rejected (insufficient jelly / already spawning / wrong player / not hive), correct ant stats
+  - Merge: creates queen, removes ants, rejected (too few / too far / wrong player), correct queen stats
+  - Found: queen moves to site, hive created on arrival, correct stats, site removed, rejected (not queen / not site), idle queen ignored
+  - Win condition: eliminated, no false trigger, mutual elimination draw, site not counted
+  - Determinism: spawn cycle, cooldown affects hash
 
 ## Task 8: Wildlife
 
