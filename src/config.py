@@ -69,7 +69,7 @@ STARTING_ANTS = 5
 CORPSE_DECAY_TICKS = 150  # 15 sec at 10 Hz
 
 # --- Sight radii (tiles) ---
-ANT_SIGHT = 5
+ANT_SIGHT = 12
 QUEEN_SIGHT = 7
 HIVE_SIGHT = 16
 

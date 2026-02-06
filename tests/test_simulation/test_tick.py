@@ -125,11 +125,11 @@ class TestMoveCommand:
         # Should not crash
         advance_tick(state, [cmd])
 
-    def test_move_to_rock_rejected(self):
-        """Move commands targeting non-walkable tiles are ignored."""
+    def test_move_to_rock_redirects_to_nearest_walkable(self):
+        """Move commands targeting non-walkable tiles redirect to nearest walkable."""
         state = GameState(seed=0)
         e = state.create_entity(player_id=0, x=BASE_X, y=BASE_Y)
-        # Tile (0, 0) is border rock
+        # Tile (0, 0) is border rock — should redirect to nearest walkable
         cmd = Command(
             command_type=CommandType.MOVE,
             player_id=0,
@@ -139,8 +139,8 @@ class TestMoveCommand:
             target_y=0,
         )
         advance_tick(state, [cmd])
-        assert e.target_x == BASE_X  # unchanged
-        assert e.target_y == BASE_Y
+        # Entity should now be moving (target changed from original position)
+        assert e.target_x != BASE_X or e.target_y != BASE_Y
 
 
 class TestPathFollowing:

@@ -61,11 +61,18 @@ def _process_commands(state: GameState, commands: list[Command]) -> None:
 
 def _handle_move(state: GameState, cmd: Command) -> None:
     """Compute A* path and assign it to entities."""
-    # Check if target tile is walkable
     target_tile_x = cmd.target_x // MILLI_TILES_PER_TILE
     target_tile_y = cmd.target_y // MILLI_TILES_PER_TILE
+    final_target_x = cmd.target_x
+    final_target_y = cmd.target_y
+
     if not state.tilemap.is_walkable(target_tile_x, target_tile_y):
-        return
+        nearest = _find_nearest_walkable(state.tilemap, target_tile_x, target_tile_y)
+        if nearest is None:
+            return
+        target_tile_x, target_tile_y = nearest
+        final_target_x = target_tile_x * MILLI_TILES_PER_TILE + MILLI_TILES_PER_TILE // 2
+        final_target_y = target_tile_y * MILLI_TILES_PER_TILE + MILLI_TILES_PER_TILE // 2
 
     for entity_id in cmd.entity_ids:
         entity = state.get_entity(entity_id)
@@ -83,8 +90,8 @@ def _handle_move(state: GameState, cmd: Command) -> None:
 
         if not tile_path:
             # No path found (or already at target tile) — just set direct target
-            entity.target_x = cmd.target_x
-            entity.target_y = cmd.target_y
+            entity.target_x = final_target_x
+            entity.target_y = final_target_y
             entity.path = []
             continue
 
@@ -160,7 +167,39 @@ def _move_toward(entity, goal_x: int, goal_y: int) -> None:
         entity.y += dy * entity.speed // dist
 
 
+_BFS_DIRS = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
 _SEP_RADIUS_SQ = SEPARATION_RADIUS * SEPARATION_RADIUS
+
+
+def _find_nearest_walkable(tilemap, tile_x: int, tile_y: int) -> tuple[int, int] | None:
+    """BFS outward from a non-walkable tile to find the nearest walkable one."""
+    visited = {(tile_x, tile_y)}
+    current = [(tile_x, tile_y)]
+
+    for _ in range(15):
+        next_layer: list[tuple[int, int]] = []
+        candidates: list[tuple[int, int]] = []
+        for x, y in current:
+            for dx, dy in _BFS_DIRS:
+                nx, ny = x + dx, y + dy
+                if (nx, ny) in visited:
+                    continue
+                visited.add((nx, ny))
+                if tilemap.is_walkable(nx, ny):
+                    candidates.append((nx, ny))
+                else:
+                    next_layer.append((nx, ny))
+        if candidates:
+            # Pick closest to original target; tie-break by (y, x)
+            return min(
+                candidates,
+                key=lambda p: ((p[0] - tile_x) ** 2 + (p[1] - tile_y) ** 2, p[1], p[0]),
+            )
+        current = next_layer
+        if not current:
+            break
+
+    return None
 
 
 def _apply_separation(state: GameState) -> None:
