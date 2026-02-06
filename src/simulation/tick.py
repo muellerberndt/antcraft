@@ -12,6 +12,7 @@ from __future__ import annotations
 from math import isqrt
 
 from src.config import MILLI_TILES_PER_TILE, SEPARATION_FORCE, SEPARATION_RADIUS
+from src.simulation.combat import process_combat
 from src.simulation.commands import Command, CommandType
 from src.simulation.pathfinding import find_path
 from src.simulation.state import GameState
@@ -27,6 +28,7 @@ def advance_tick(state: GameState, commands: list[Command]) -> None:
     _process_commands(state, commands)
     _update_movement(state)
     _apply_separation(state)
+    process_combat(state)
     # Recompute fog of war for both players
     state.visibility.update(state.entities, 0)
     state.visibility.update(state.entities, 1)

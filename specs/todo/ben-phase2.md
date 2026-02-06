@@ -114,28 +114,36 @@ The shared interfaces PR has been merged. The following are already in place:
   - STOP clears path mid-movement
   - MOVE computes walkable path around rocks
 
-## Task 5: Combat System
+## Task 5: Combat System — DONE
 
 **File:** `src/simulation/combat.py`
 **Tests:** `tests/test_simulation/test_combat.py`
 
-- [ ] Auto-attack logic:
-  - Each tick, ants attack the nearest enemy within `ATTACK_RANGE` tiles
-  - Damage is `entity.damage // TICK_RATE` per tick (DPS converted to per-tick)
-  - Both ants and wildlife can be attacked
-  - Hives can be attacked (structures don't fight back)
-- [ ] Death and corpse creation:
-  - When `entity.hp <= 0`, remove entity and create a CORPSE entity at that position
-  - Corpse `jelly_value` = `ANT_CORPSE_JELLY` (or wildlife's jelly value)
-  - Corpse has `player_id = -1` (neutral, any player can harvest)
-- [ ] Corpse decay:
-  - Corpses lose jelly_value over time, removed after `CORPSE_DECAY_TICKS`
-- [ ] Tests:
-  - Ants deal damage to enemies in range
-  - Entity dies when HP reaches 0
-  - Corpse is created on death with correct jelly value
-  - Corpses decay and disappear
-  - Hives take damage from enemy ants
+- [x] Auto-attack logic:
+  - Each tick, entities with damage > 0 attack nearest enemy within `ATTACK_RANGE` tiles
+  - Damage uses Bresenham-style distribution: `_damage_this_tick(dps, tick)` guarantees exactly `dps` total damage over every `TICK_RATE` ticks using integer math only
+  - Two-phase snapshot: compute all attacks, then apply — order-independent and deterministic
+  - Deterministic tie-breaking: lower entity_id wins when equidistant
+  - Both ants and wildlife can be attacked; hives can be attacked (structures don't fight back)
+  - Wildlife doesn't attack other wildlife
+  - Entity state set to ATTACKING during combat, resets to IDLE when no target
+- [x] Death and corpse creation:
+  - When `entity.hp <= 0`, entity removed and CORPSE created at same position
+  - Corpse `jelly_value` = `ANT_CORPSE_JELLY` / wildlife's configured jelly value
+  - Corpse `hp` = `CORPSE_DECAY_TICKS` (used as decay timer), `player_id = -1`
+  - Hives/queens destroyed without leaving corpses
+  - Simultaneous kills supported (both entities can die on same tick)
+- [x] Corpse decay:
+  - Corpse `hp` decrements by 1 each tick, removed when `hp <= 0`
+  - Decay runs before combat so newly created corpses aren't decayed immediately
+- [x] Integration: `process_combat(state)` called in `advance_tick()` after separation, before fog of war
+- [x] Tests (22 passing):
+  - Damage distribution: sums to DPS, zero damage, even division, periodic
+  - Auto-attack: damages enemy in range, no damage out of range, no friendly fire, attacks nearest, state management, mutual combat
+  - Death: entity removed at 0 HP, corpse created with correct jelly, hive no corpse, simultaneous kills
+  - Corpse decay: hp decrements, removed when expired, full decay cycle
+  - Hive combat: takes damage, doesn't fight back
+  - Determinism: identical state after multiple ticks, correct death timing
 
 ## Task 6: Harvesting (Corpse Jelly Collection)
 
@@ -208,28 +216,6 @@ The shared interfaces PR has been merged. The following are already in place:
   - Aphids don't attack
   - Killed wildlife creates corpse with correct jelly
 
-## Task 9: Fog of War
-
-**File:** `src/simulation/visibility.py`
-**Tests:** `tests/test_simulation/test_visibility.py`
-
-- [ ] Define visibility states: `UNEXPLORED = 0`, `FOG = 1`, `VISIBLE = 2`
-- [ ] Implement `VisibilityMap` class:
-  - Per-player 2D grid of visibility states
-  - `update(entities, player_id)` — recompute VISIBLE tiles from unit/hive positions
-  - Previously VISIBLE tiles become FOG (not UNEXPLORED)
-  - `get_visibility(player_id, x, y) -> int`
-  - Sight radius uses integer distance check: `dx*dx + dy*dy <= radius*radius`
-- [ ] Add `VisibilityMap` to `GameState`
-- [ ] Call `visibility.update()` at end of each `advance_tick()`
-- [ ] Update `compute_hash()` to include visibility state
-- [ ] Tests:
-  - Unit reveals tiles within sight radius
-  - Moving unit updates visibility
-  - Previously seen tiles become FOG, not UNEXPLORED
-  - Visibility is per-player
-
----
 
 ## Integration Notes
 
