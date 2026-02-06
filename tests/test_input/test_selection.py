@@ -56,13 +56,13 @@ class TestClickSelect:
         sm.select_at(5 * MT + MT // 2, 5 * MT + MT // 2, entities, 0, 2 * MT)
         assert sm.selected_ids == set()
 
-    def test_cannot_select_hive(self):
+    def test_can_select_hive(self):
         sm = SelectionManager()
         entities = [
             _ent(0, 0, 5, 5, EntityType.HIVE),
         ]
         sm.select_at(5 * MT + MT // 2, 5 * MT + MT // 2, entities, 0, 2 * MT)
-        assert sm.selected_ids == set()
+        assert sm.selected_ids == {0}
 
     def test_cannot_select_corpse(self):
         sm = SelectionManager()
@@ -132,7 +132,7 @@ class TestBoxSelect:
         sm = SelectionManager()
         entities = [
             _ent(0, 0, 5, 5, EntityType.ANT),
-            _ent(1, 0, 6, 6, EntityType.HIVE),
+            _ent(1, 0, 6, 6, EntityType.CORPSE),
             _ent(2, 0, 6, 5, EntityType.QUEEN),
         ]
         sm.select_in_rect(4 * MT, 4 * MT, 7 * MT, 7 * MT, entities, 0)

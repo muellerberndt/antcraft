@@ -15,7 +15,7 @@ from src.config import (
     MINIMAP_SIZE,
     MILLI_TILES_PER_TILE,
 )
-from src.simulation.state import EntityType, GameState
+from src.simulation.state import Entity, EntityType, GameState
 from src.simulation.tilemap import TileMap, TileType
 from src.simulation.visibility import FOG, UNEXPLORED, VISIBLE
 
@@ -243,56 +243,98 @@ class HUD:
         self._screen.blit(jelly_surf, (start_x, 6))
         self._screen.blit(ants_surf, (start_x + jelly_surf.get_width() + 20, 6))
 
-    # ---- Selection info ----
+    # ---- Selection panel (bottom of screen) ----
+
+    _PANEL_MARGIN = 10
+    _CELL_SIZE = 40
+    _CELL_PAD = 3
 
     def _draw_selection_info(self, state: GameState, selected_ids: set[int]) -> None:
-        """Draw selection info at bottom-left."""
+        """Draw selection panel at bottom of screen with unit cells."""
         if not selected_ids:
             return
 
-        ants = 0
-        queens = 0
-        single_entity = None
-        for eid in selected_ids:
+        # Collect selected entities (sorted by id for stable layout)
+        entities: list[Entity] = []
+        for eid in sorted(selected_ids):
             e = state.get_entity(eid)
-            if e is None:
-                continue
-            if e.entity_type == EntityType.ANT:
-                ants += 1
-            elif e.entity_type == EntityType.QUEEN:
-                queens += 1
-            if len(selected_ids) == 1:
-                single_entity = e
-
-        parts: list[str] = []
-        if ants > 0:
-            parts.append(f"{ants} Ant{'s' if ants > 1 else ''}")
-        if queens > 0:
-            parts.append(f"{queens} Queen{'s' if queens > 1 else ''}")
-        if not parts:
+            if e is not None:
+                entities.append(e)
+        if not entities:
             return
 
-        text = " + ".join(parts) + " selected"
-        text_surf = self._font.render(text, True, (200, 200, 200))
-
+        sw = self._screen.get_width()
         sh = self._screen.get_height()
-        y = sh - 30
+        cell = self._CELL_SIZE
+        pad = self._CELL_PAD
+        step = cell + pad
+
+        # Panel sizing: fit cells in a grid, max 2 rows
+        max_cols = min(len(entities), (sw - self._mm_w - 40) // step)
+        if max_cols <= 0:
+            max_cols = 1
+        rows = min(2, (len(entities) + max_cols - 1) // max_cols)
+        cols = min(max_cols, len(entities))
+
+        panel_w = cols * step + pad + 10
+        panel_h = rows * step + pad + 10
+        panel_x = self._PANEL_MARGIN
+        panel_y = sh - panel_h - self._PANEL_MARGIN
 
         # Background
-        bg_w = text_surf.get_width() + 16
-        bg_surf = pygame.Surface((bg_w, 24), pygame.SRCALPHA)
-        bg_surf.fill((0, 0, 0, 140))
-        self._screen.blit(bg_surf, (8, y - 2))
-        self._screen.blit(text_surf, (16, y))
+        bg = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+        bg.fill((0, 0, 0, 160))
+        self._screen.blit(bg, (panel_x, panel_y))
+        pygame.draw.rect(
+            self._screen, (60, 60, 60),
+            (panel_x, panel_y, panel_w, panel_h), 1,
+        )
 
-        # HP bar for single selection
-        if single_entity and single_entity.max_hp > 0:
-            bar_w, bar_h = 80, 6
-            bx = 16
-            by = y - 12
-            pygame.draw.rect(self._screen, (60, 0, 0), (bx, by, bar_w, bar_h))
-            fill = max(1, single_entity.hp * bar_w // single_entity.max_hp)
-            pygame.draw.rect(self._screen, (0, 200, 0), (bx, by, fill, bar_h))
+        # Import renderer drawing functions (deferred to avoid circular import)
+        from src.rendering.renderer import (
+            _draw_ant,
+            _draw_hexagon,
+            _darken,
+            PLAYER_COLORS as R_PLAYER_COLORS,
+        )
+
+        # Draw each unit as a cell with actual sprite + HP bar
+        for i, e in enumerate(entities):
+            if i >= rows * cols:
+                break
+            col = i % cols
+            row = i // cols
+            cx = panel_x + pad + 5 + col * step
+            cy = panel_y + pad + 5 + row * step
+
+            # Cell background
+            pygame.draw.rect(self._screen, (30, 25, 20), (cx, cy, cell, cell))
+            pygame.draw.rect(self._screen, (50, 50, 50), (cx, cy, cell, cell), 1)
+
+            # Draw entity sprite centered in cell
+            sprite_x = cx + cell // 2
+            sprite_y = cy + cell // 2
+            if e.entity_type == EntityType.ANT:
+                _draw_ant(self._screen, sprite_x, sprite_y, e, large=False)
+            elif e.entity_type == EntityType.QUEEN:
+                _draw_ant(self._screen, sprite_x, sprite_y + 2, e, large=True)
+            elif e.entity_type == EntityType.HIVE:
+                color = R_PLAYER_COLORS.get(e.player_id, (200, 200, 200))
+                _draw_hexagon(self._screen, sprite_x, sprite_y, 12, color)
+                _draw_hexagon(self._screen, sprite_x, sprite_y, 6, _darken(color, 40))
+                _draw_hexagon(self._screen, sprite_x, sprite_y, 12, (0, 0, 0), width=1)
+
+            # HP bar at bottom of cell
+            if e.max_hp > 0:
+                bar_w = cell - 4
+                bar_h = 4
+                bar_x = cx + 2
+                bar_y = cy + cell - 6
+                pygame.draw.rect(self._screen, (60, 0, 0), (bar_x, bar_y, bar_w, bar_h))
+                fill = max(1, e.hp * bar_w // e.max_hp)
+                green = min(255, 255 * e.hp // e.max_hp)
+                red = min(255, 255 - green)
+                pygame.draw.rect(self._screen, (red, green, 0), (bar_x, bar_y, fill, bar_h))
 
     # ---- Debug overlay ----
 
