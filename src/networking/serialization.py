@@ -10,7 +10,7 @@ Command format within COMMANDS payload:
     [tick:u32][n_commands:u16]
     per command:
         [type:u8][player:u8][tick:u32][n_entities:u16]
-        [entity_ids:u32 * n_entities][target_x:i32][target_y:i32]
+        [entity_ids:u32 * n_entities][target_x:i32][target_y:i32][target_entity_id:u32]
 """
 
 from __future__ import annotations
@@ -48,9 +48,9 @@ def decode_message(data: bytes) -> tuple[MessageType, bytes]:
 
 # --- Command serialization ---
 
-CMD_HEADER = struct.Struct("!BBIH")  # type(u8), player(u8), tick(u32), n_entities(u16)
-CMD_ENTITY = struct.Struct("!I")     # entity_id (u32)
-CMD_TARGET = struct.Struct("!ii")    # target_x(i32), target_y(i32)
+CMD_HEADER = struct.Struct("!BBIH")   # type(u8), player(u8), tick(u32), n_entities(u16)
+CMD_ENTITY = struct.Struct("!I")      # entity_id (u32)
+CMD_TARGET = struct.Struct("!iiI")    # target_x(i32), target_y(i32), target_entity_id(u32)
 
 
 def encode_commands(commands: list[Command], tick: int | None = None) -> bytes:
@@ -70,7 +70,7 @@ def encode_commands(commands: list[Command], tick: int | None = None) -> bytes:
         ))
         for eid in cmd.entity_ids:
             parts.append(CMD_ENTITY.pack(eid))
-        parts.append(CMD_TARGET.pack(cmd.target_x, cmd.target_y))
+        parts.append(CMD_TARGET.pack(cmd.target_x, cmd.target_y, cmd.target_entity_id))
     return b"".join(parts)
 
 
@@ -90,7 +90,7 @@ def decode_commands(data: bytes) -> tuple[int, list[Command]]:
             (eid,) = CMD_ENTITY.unpack_from(data, offset)
             offset += CMD_ENTITY.size
             entity_ids.append(eid)
-        target_x, target_y = CMD_TARGET.unpack_from(data, offset)
+        target_x, target_y, target_entity_id = CMD_TARGET.unpack_from(data, offset)
         offset += CMD_TARGET.size
         commands.append(Command(
             command_type=CommandType(cmd_type),
@@ -99,6 +99,7 @@ def decode_commands(data: bytes) -> tuple[int, list[Command]]:
             entity_ids=tuple(entity_ids),
             target_x=target_x,
             target_y=target_y,
+            target_entity_id=target_entity_id,
         ))
     return msg_tick, commands
 

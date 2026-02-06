@@ -4,27 +4,20 @@ All rendering, camera, HUD, and input systems. This code depends on PyGame and t
 
 **Branch:** `phase2-rendering`
 
+**Reference:** [game_mechanics.md](../game_mechanics.md), [balance.md](../balance.md)
+
 ---
 
-## Shared Setup (do first, coordinate with Ben)
+## Shared Setup — DONE
 
-Before either dev starts, agree on and commit these shared interface changes together (or have one person do it in a `phase2-interfaces` PR that both branch from):
+The shared interfaces PR has been merged. The following are already in place:
 
-- [ ] **Expand Entity dataclass** in `src/simulation/state.py`
-  - Add fields: `entity_type: EntityType`, `hp: int`, `max_hp: int`, `state: EntityState`, `path: list[tuple[int, int]]`, `carrying: int`, `carry_capacity: int`
-  - Add `EntityType` enum: `WORKER = 0, SOLDIER = 1, NEST = 2`
-  - Add `EntityState` enum: `IDLE = 0, MOVING = 1, GATHERING = 2, ATTACKING = 3, BUILDING = 4`
-
-- [ ] **Expand CommandType** in `src/simulation/commands.py`
-  - Add: `GATHER = 3`, `BUILD = 4`
-  - Add `target_entity_id: int = 0` field to Command
-  - Update serialization in `serialization.py`
-
-- [ ] **Add new config constants** in `src/config.py`
-  - `MAP_WIDTH_TILES = 100`, `MAP_HEIGHT_TILES = 100`
-  - Camera/scroll speed constants: `CAMERA_SCROLL_SPEED = 10`, `CAMERA_EDGE_SCROLL_MARGIN = 20`
-  - `MINIMAP_SIZE = 200` (pixels)
-  - `SELECTION_THRESHOLD = 15` (pixels, click selection radius)
+- [x] `EntityType`: ANT, QUEEN, HIVE, HIVE_SITE, CORPSE, APHID, BEETLE, MANTIS
+- [x] `EntityState`: IDLE, MOVING, ATTACKING, HARVESTING, FOUNDING
+- [x] `CommandType`: MOVE, STOP, HARVEST, SPAWN_ANT, MERGE_QUEEN, FOUND_HIVE
+- [x] `Command.target_entity_id` field added, serialization updated
+- [x] Config: CAMERA_SCROLL_SPEED, CAMERA_EDGE_SCROLL_MARGIN, MINIMAP_SIZE, SELECTION_THRESHOLD
+- [x] Config: all balance parameters from balance.md
 
 ---
 
@@ -57,10 +50,10 @@ Before either dev starts, agree on and commit these shared interface changes tog
 
 - [ ] Render visible tiles based on camera viewport:
   - Only draw tiles within `camera.get_visible_tile_range()` (culling)
-  - Tile colors: DIRT=brown, ROCK=gray, WATER=blue, FOOD=green
-  - FOOD tiles: vary green intensity based on remaining food amount
-- [ ] Use the `TileMap` interface Ben provides: `tilemap.get_tile(x, y)`, `tilemap.get_food(x, y)`
-- [ ] **For development before Ben's code is ready:** create a simple `MockTileMap` with hardcoded terrain to develop against (e.g., mostly DIRT with some ROCK walls and FOOD patches)
+  - Tile colors: DIRT=brown, ROCK=gray, WATER=blue
+  - No FOOD tiles — jelly comes from corpses
+- [ ] Use the `TileMap` interface Ben provides: `tilemap.get_tile(x, y)`
+- [ ] **For development before Ben's code is ready:** create a simple `MockTileMap` with hardcoded terrain (mostly DIRT with some ROCK walls and WATER features)
 - [ ] Grid lines optional (toggle with debug key?)
 
 ## Task 3: Entity Rendering (expanded)
@@ -68,13 +61,18 @@ Before either dev starts, agree on and commit these shared interface changes tog
 **File:** `src/rendering/renderer.py` (extend existing)
 
 - [ ] Draw entities relative to camera position (use `camera.world_to_screen()`)
-  - Workers: small colored circles (existing, adapt for camera offset)
-  - Nest: larger colored square or circle
-  - Color by `player_id` (red/blue from config)
+  - **ANT**: small colored circle, color by `player_id` (red/blue)
+  - **QUEEN**: larger colored circle with crown indicator
+  - **HIVE**: large colored hexagon or circle
+  - **HIVE_SITE**: gray/neutral marker (unclaimed expansion point)
+  - **CORPSE**: small gray X or skull marker, fade with decay
+  - **APHID**: tiny green dot (wildlife)
+  - **BEETLE**: medium brown dot (wildlife)
+  - **MANTIS**: large dark red dot (wildlife)
 - [ ] Entity state indicators:
-  - GATHERING: small food icon or color tint
-  - MOVING: direction indicator or trail
-  - Carrying food: small dot above entity
+  - ATTACKING: red flash or slash effect
+  - HARVESTING: carrying jelly → small yellow dot above ant
+  - FOUNDING: queen building animation
 - [ ] Health bars above damaged units (only show if `hp < max_hp`)
 - [ ] Selected unit highlight (bright outline/ring) — reads from selection state (Task 5)
 - [ ] Interpolation: keep existing interpolation logic, adapt for camera coords
@@ -108,11 +106,13 @@ Before either dev starts, agree on and commit these shared interface changes tog
   - Draw selection rectangle while dragging (green translucent rect)
 - [ ] Selection is **local only** — not synced, not in GameState
 - [ ] Only own units can be selected (filter by `player_id`)
+- [ ] Selectable types: ANT, QUEEN (not hives, wildlife, corpses)
 - [ ] Tests:
   - Click selects nearest unit within threshold
   - Click on empty area clears selection
   - Box select selects all owned units in rectangle
   - Cannot select enemy units
+  - Cannot select hives/corpses/wildlife
 
 ## Task 6: Input Handler (expanded)
 
@@ -122,11 +122,13 @@ Before either dev starts, agree on and commit these shared interface changes tog
   - All mouse clicks → `camera.screen_to_world()` → milli-tile coords
 - [ ] Left click/drag: selection (delegate to SelectionManager)
 - [ ] Right click: context-sensitive command
-  - If clicking on a FOOD tile and workers are selected → GATHER command
+  - If clicking on a CORPSE entity and ants are selected → HARVEST command (target_entity_id = corpse ID)
+  - If clicking on a HIVE_SITE and a QUEEN is selected → FOUND_HIVE command
   - Otherwise → MOVE command for selected units
-  - (BUILD command can be deferred or stubbed)
 - [ ] Keyboard:
   - S key: STOP command for selected units
+  - Q key (at hive): SPAWN_ANT command (target_entity_id = hive)
+  - M key (at hive with ants selected): MERGE_QUEEN command
   - Arrow keys / edge scroll: camera movement (delegate to Camera)
   - ESC: deselect all (or quit if nothing selected)
 - [ ] All commands still use `tick = current_tick + INPUT_DELAY_TICKS`
@@ -139,19 +141,24 @@ Before either dev starts, agree on and commit these shared interface changes tog
 
 - [ ] **Minimap** (bottom-right or bottom-left corner):
   - Render full map at tiny scale (`MAP_WIDTH_TILES` pixels wide or smaller)
-  - Terrain colors (simplified: brown/gray/blue/green dots)
+  - Terrain colors (simplified: brown/gray/blue dots)
   - Friendly unit dots (player color)
+  - Enemy unit dots (if visible, not in fog)
+  - Hive icons for all known hives
+  - Hive site markers (neutral)
   - White rectangle showing current camera viewport
   - Click on minimap → set camera position
   - Fog of war overlay on minimap
 - [ ] **Resource display** (top of screen):
-  - Show food icon + `player_resources[player_id]` count
+  - Show jelly icon + `player_jelly[player_id]` count
+  - Show ant count for current player
 - [ ] **Selection info** (bottom of screen, optional):
   - Number of selected units
-  - Unit type if single selection
+  - HP bars if single selection
+  - Unit type (ant/queen) if single selection
 - [ ] **Debug overlay** (existing, expand):
   - Keep tick, FPS, player, connection status
-  - Add: camera position, selected count
+  - Add: camera position, selected count, jelly amount
 
 ---
 
@@ -165,10 +172,9 @@ class MockTileMap:
     def __init__(self, width=100, height=100):
         self.width = width
         self.height = height
-        # Mostly dirt, some rock walls, food patches
+        # Mostly DIRT, some ROCK walls, WATER features
 
     def get_tile(self, x, y) -> int: ...
-    def get_food(self, x, y) -> int: ...
     def is_walkable(self, x, y) -> bool: ...
 
 # Stub VisibilityMap
@@ -183,7 +189,7 @@ This lets you build and test all rendering code immediately. When Ben's real imp
 
 ## Integration Notes
 
-- Ben's simulation code provides: `GameState.tilemap`, `GameState.player_resources`, `Entity.*` fields, `VisibilityMap`
+- Ben's simulation code provides: `GameState.tilemap`, `GameState.player_jelly`, `Entity.*` fields, `VisibilityMap`
 - Your Camera, SelectionManager, and HUD are local-only (no sync needed)
 - Your InputHandler produces Commands that feed into the existing lockstep loop in `game.py`
 - The `Game` class will need updating to wire Camera + SelectionManager into the loop — this is the integration PR

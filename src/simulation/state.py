@@ -15,25 +15,51 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
+from enum import IntEnum
 
-from src.config import DEFAULT_UNIT_SPEED
+from src.config import ANT_HP, ANT_SPEED
+
+
+class EntityType(IntEnum):
+    ANT = 0
+    QUEEN = 1
+    HIVE = 2
+    HIVE_SITE = 3  # neutral, unclaimed expansion point
+    CORPSE = 4
+    APHID = 5      # wildlife tier 1
+    BEETLE = 6     # wildlife tier 2
+    MANTIS = 7     # wildlife tier 3
+
+
+class EntityState(IntEnum):
+    IDLE = 0
+    MOVING = 1
+    ATTACKING = 2
+    HARVESTING = 3  # carrying jelly from a corpse
+    FOUNDING = 4    # queen building a hive
 
 
 @dataclass(slots=True)
 class Entity:
-    """A game entity (ant unit, building, etc.).
-
-    Phase 1: just a moveable ant.
+    """A game entity (ant, queen, hive, wildlife, corpse, etc.).
 
     All positions are in milli-tiles (1 tile = 1000 milli-tiles).
     """
     entity_id: int
-    player_id: int
+    entity_type: EntityType
+    player_id: int          # -1 for neutral (wildlife, hive sites, corpses)
     x: int
     y: int
     target_x: int
     target_y: int
-    speed: int = DEFAULT_UNIT_SPEED  # milli-tiles per tick
+    speed: int = ANT_SPEED
+    hp: int = ANT_HP
+    max_hp: int = ANT_HP
+    damage: int = 0         # DPS (converted to per-tick in simulation)
+    state: EntityState = EntityState.IDLE
+    path: list[tuple[int, int]] = field(default_factory=list)
+    carrying: int = 0       # jelly being carried
+    jelly_value: int = 0    # jelly dropped on death (corpse value)
 
     @property
     def is_moving(self) -> bool:
@@ -60,10 +86,18 @@ class GameState:
         self.game_over: bool = False
         self.winner: int = -1
 
-    def create_entity(self, player_id: int, x: int, y: int, **kwargs) -> Entity:
+    def create_entity(
+        self,
+        player_id: int,
+        x: int,
+        y: int,
+        entity_type: EntityType = EntityType.ANT,
+        **kwargs,
+    ) -> Entity:
         """Create a new entity with a unique ID."""
         entity = Entity(
             entity_id=self.next_entity_id,
+            entity_type=entity_type,
             player_id=player_id,
             x=x,
             y=y,
@@ -102,10 +136,17 @@ class GameState:
         h.update(len(self.entities).to_bytes(4, "big"))
         for e in self.entities:
             h.update(e.entity_id.to_bytes(4, "big"))
+            h.update(e.entity_type.to_bytes(1, "big"))
             h.update(e.player_id.to_bytes(4, "big"))
             h.update(e.x.to_bytes(4, "big", signed=True))
             h.update(e.y.to_bytes(4, "big", signed=True))
             h.update(e.target_x.to_bytes(4, "big", signed=True))
             h.update(e.target_y.to_bytes(4, "big", signed=True))
             h.update(e.speed.to_bytes(4, "big"))
+            h.update(e.hp.to_bytes(4, "big"))
+            h.update(e.max_hp.to_bytes(4, "big"))
+            h.update(e.damage.to_bytes(4, "big"))
+            h.update(e.state.to_bytes(1, "big"))
+            h.update(e.carrying.to_bytes(4, "big"))
+            h.update(e.jelly_value.to_bytes(4, "big"))
         return h.digest()

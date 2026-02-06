@@ -4,34 +4,20 @@ All simulation code. Everything here is headless, testable without PyGame, and d
 
 **Branch:** `phase2-simulation`
 
+**Reference:** [game_mechanics.md](../game_mechanics.md), [balance.md](../balance.md)
+
 ---
 
-## Shared Setup (do first, coordinate with theCoon)
+## Shared Setup — DONE
 
-Before either dev starts, agree on and commit these shared interface changes together (or have one person do it in a `phase2-interfaces` PR that both branch from):
+The shared interfaces PR has been merged. The following are already in place:
 
-- [ ] **Expand Entity dataclass** in `src/simulation/state.py`
-  - Add fields: `entity_type: EntityType`, `hp: int`, `max_hp: int`, `state: EntityState`, `path: list[tuple[int, int]]`, `carrying: int`, `carry_capacity: int`
-  - Add `EntityType` enum: `WORKER = 0, SOLDIER = 1, NEST = 2`
-  - Add `EntityState` enum: `IDLE = 0, MOVING = 1, GATHERING = 2, ATTACKING = 3, BUILDING = 4`
-  - Keep existing fields (`entity_id`, `player_id`, `x`, `y`, `target_x`, `target_y`, `speed`) unchanged
-  - Update `compute_hash()` to include new fields
-  - Update `create_entity()` to accept new fields with sensible defaults
-
-- [ ] **Expand CommandType** in `src/simulation/commands.py`
-  - Add: `GATHER = 3`, `BUILD = 4`
-  - Add `target_entity_id: int = 0` field to Command (for GATHER target)
-  - Update `sort_key()` if needed
-  - Update `encode_commands` / `decode_commands` in `serialization.py` for new field
-
-- [ ] **Add new config constants** in `src/config.py`
-  - `MAP_WIDTH_TILES = 100`, `MAP_HEIGHT_TILES = 100` (update from 60x40)
-  - `TILE_FOOD_AMOUNT = 500` (initial food per FOOD tile)
-  - `GATHER_RATE = 10` (food units per tick while gathering)
-  - `CARRY_CAPACITY = 100` (max food a worker can carry)
-  - `SIGHT_RADIUS = 5` (tiles)
-  - `WORKER_SPEED = 80`, `WORKER_HP = 100`
-  - `STARTING_WORKERS = 5`
+- [x] `EntityType`: ANT, QUEEN, HIVE, HIVE_SITE, CORPSE, APHID, BEETLE, MANTIS
+- [x] `EntityState`: IDLE, MOVING, ATTACKING, HARVESTING, FOUNDING
+- [x] `Entity` fields: entity_id, entity_type, player_id, x, y, target_x, target_y, speed, hp, max_hp, damage, state, path, carrying, jelly_value
+- [x] `CommandType`: MOVE, STOP, HARVEST, SPAWN_ANT, MERGE_QUEEN, FOUND_HIVE
+- [x] `Command.target_entity_id` field added, serialization updated
+- [x] Config: all balance parameters from balance.md
 
 ---
 
@@ -40,39 +26,42 @@ Before either dev starts, agree on and commit these shared interface changes tog
 **File:** `src/simulation/tilemap.py`
 **Tests:** `tests/test_simulation/test_tilemap.py`
 
-- [ ] Define `TileType(IntEnum)`: DIRT=0, ROCK=1, WATER=2, FOOD=3
+- [ ] Define `TileType(IntEnum)`: DIRT=0, ROCK=1, WATER=2
+  - No FOOD tiles — jelly comes from corpses and passive hive income
 - [ ] Implement `TileMap` class:
   - `width: int`, `height: int`
   - `tiles: list[int]` (flat array, row-major, `tiles[y * width + x]`)
-  - `food: list[int]` (parallel array, resource amount per tile)
   - `get_tile(x, y) -> TileType`
   - `set_tile(x, y, tile_type)`
-  - `get_food(x, y) -> int`
-  - `remove_food(x, y, amount) -> int` (returns actual amount removed)
-  - `is_walkable(x, y) -> bool` (DIRT and FOOD are walkable, ROCK and WATER are not)
+  - `is_walkable(x, y) -> bool` (DIRT is walkable, ROCK and WATER are not)
 - [ ] Implement `generate_map(seed: int, width: int, height: int) -> TileMap`
-  - Use the GameState PRNG (or a separate LCG seeded from the shared seed) — NO `random` module
+  - Use a deterministic LCG seeded from the shared seed — NO `random` module
   - Generate rock/water clusters via cellular automata (integer math)
-  - Mirror map along center vertical axis for fairness
-  - Guarantee starting area for each player: clear of obstacles, food nearby
-  - Place food clusters (set tile type + food amount)
+  - Mirror map for fairness (symmetrical for all players)
+  - Place **hive sites** (neutral expansion points) at fixed symmetrical locations
+  - Guarantee each player's starting area is clear of obstacles
+  - Place wildlife spawn points
 - [ ] Tests:
-  - Same seed produces identical map
-  - Different seeds produce different maps
+  - Same seed → identical map
+  - Different seeds → different maps
   - Starting areas are walkable
   - Map is symmetric
   - `is_walkable` correct for each tile type
-  - `remove_food` depletes and converts FOOD to DIRT
+  - Hive sites are placed symmetrically
 
-## Task 2: Integrate TileMap into GameState
+## Task 2: Integrate TileMap + Jelly Economy into GameState
 
 **File:** `src/simulation/state.py`
 
 - [ ] Add `tilemap: TileMap` field to `GameState`
-- [ ] Add `player_resources: dict[int, int]` to `GameState` (player_id -> food)
+- [ ] Add `player_jelly: dict[int, int]` to `GameState` (player_id -> jelly amount)
+  - Initialize with `STARTING_JELLY` per player
 - [ ] Generate tilemap in `GameState.__init__()` using the seed
-- [ ] Update `compute_hash()` to include tilemap state (food amounts) and player resources
-- [ ] Update `_setup_initial_state` in `game.py`: spawn `STARTING_WORKERS` per player + one NEST entity at each starting location
+- [ ] Update `compute_hash()` to include tilemap state and player_jelly
+- [ ] Update `_setup_initial_state` in `game.py`:
+  - Spawn 1 HIVE per player at starting location
+  - Spawn `STARTING_ANTS` ANT entities per player near their hive
+  - Place HIVE_SITE entities at map generation locations
 
 ## Task 3: A* Pathfinding
 
@@ -116,31 +105,101 @@ Before either dev starts, agree on and commit these shared interface changes tog
   - Entity stops at final waypoint
   - STOP clears path mid-movement
 
-## Task 5: Resource Gathering
+## Task 5: Combat System
+
+**File:** `src/simulation/combat.py`
+**Tests:** `tests/test_simulation/test_combat.py`
+
+- [ ] Auto-attack logic:
+  - Each tick, ants attack the nearest enemy within `ATTACK_RANGE` tiles
+  - Damage is `entity.damage // TICK_RATE` per tick (DPS converted to per-tick)
+  - Both ants and wildlife can be attacked
+  - Hives can be attacked (structures don't fight back)
+- [ ] Death and corpse creation:
+  - When `entity.hp <= 0`, remove entity and create a CORPSE entity at that position
+  - Corpse `jelly_value` = `ANT_CORPSE_JELLY` (or wildlife's jelly value)
+  - Corpse has `player_id = -1` (neutral, any player can harvest)
+- [ ] Corpse decay:
+  - Corpses lose jelly_value over time, removed after `CORPSE_DECAY_TICKS`
+- [ ] Tests:
+  - Ants deal damage to enemies in range
+  - Entity dies when HP reaches 0
+  - Corpse is created on death with correct jelly value
+  - Corpses decay and disappear
+  - Hives take damage from enemy ants
+
+## Task 6: Harvesting (Corpse Jelly Collection)
 
 **File:** `src/simulation/tick.py` (extend `advance_tick`)
-**Tests:** `tests/test_simulation/test_resources.py`
+**Tests:** `tests/test_simulation/test_harvest.py`
 
-- [ ] GATHER command processing:
-  - Find nearest FOOD tile to target location
-  - Pathfind worker to that tile
-  - Set entity state to MOVING, then GATHERING when arrived
-- [ ] Gathering tick logic:
-  - Entity in GATHERING state: remove `GATHER_RATE` food from tile per tick, add to `carrying`
-  - When `carrying == carry_capacity` or tile depleted: auto-return to nearest NEST
+- [ ] HARVEST command processing:
+  - Pathfind ants to target corpse entity
+  - Set entity state to MOVING, then HARVESTING when arrived
+- [ ] Harvesting tick logic:
+  - Entity in HARVESTING state: transfer jelly from corpse to `carrying`
+  - When corpse is depleted or ant is full: auto-return to nearest own HIVE
   - Set state to MOVING (returning)
 - [ ] Returning logic:
-  - When worker arrives at NEST: add `carrying` to `player_resources[player_id]`, set `carrying = 0`
-  - Auto-return to last food tile (or find new one if depleted)
-- [ ] Tile depletion: when food reaches 0, convert FOOD tile to DIRT
+  - When ant arrives at HIVE: add `carrying` to `player_jelly[player_id]`, set `carrying = 0`
 - [ ] Tests:
-  - Worker gathers food, carrying increases
-  - Worker returns food to nest, stockpile increases
-  - Depleted tile becomes DIRT
-  - Worker auto-returns when full
-  - Multiple workers can gather simultaneously
+  - Ant harvests corpse, carrying increases
+  - Ant returns jelly to hive, stockpile increases
+  - Depleted corpse is removed
+  - Multiple ants can harvest same corpse
 
-## Task 6: Fog of War
+## Task 7: Hive Mechanics (Spawning, Income)
+
+**File:** `src/simulation/tick.py` (extend `advance_tick`)
+**Tests:** `tests/test_simulation/test_hive.py`
+
+- [ ] Passive jelly income:
+  - Each HIVE entity generates `HIVE_PASSIVE_INCOME / TICK_RATE` jelly per tick
+  - Add to `player_jelly[player_id]`
+- [ ] SPAWN_ANT command:
+  - Target a HIVE entity (via `target_entity_id`)
+  - Deduct `ANT_SPAWN_COST` from player_jelly
+  - After `ANT_SPAWN_COOLDOWN` ticks, create a new ANT entity near the hive
+  - Reject if insufficient jelly
+- [ ] MERGE_QUEEN command:
+  - Select `QUEEN_MERGE_COST` ants at a hive
+  - Remove those ants, create one QUEEN entity
+  - Queen has QUEEN_HP, QUEEN_SPEED, no damage
+- [ ] FOUND_HIVE command:
+  - Queen moves to a HIVE_SITE entity
+  - When queen arrives: remove queen, convert HIVE_SITE to HIVE (set player_id)
+- [ ] Win condition:
+  - Player is eliminated when all their HIVE entities are destroyed
+  - Last player with >=1 hive wins → set `game_over=True`, `winner=player_id`
+- [ ] Tests:
+  - Passive income accumulates
+  - Ant spawns after cooldown, jelly deducted
+  - Queen merges from ants
+  - Queen founds hive at site
+  - Player eliminated when last hive destroyed
+
+## Task 8: Wildlife
+
+**File:** `src/simulation/wildlife.py`
+**Tests:** `tests/test_simulation/test_wildlife.py`
+
+- [ ] Wildlife entity creation:
+  - APHID: `hp=5, damage=0, jelly_value=3, speed=0` (passive, doesn't move)
+  - BEETLE: `hp=80, damage=8, jelly_value=25, speed=20`
+  - MANTIS: `hp=200, damage=20, jelly_value=80, speed=15`
+- [ ] Wildlife spawning:
+  - Periodically spawn wildlife at random map locations (using GameState PRNG)
+  - Spawn rates configurable; avoid spawning near hives
+- [ ] Wildlife AI (simple):
+  - Beetles/mantis: attack nearby ants if any within range, otherwise idle
+  - Aphids: do nothing
+- [ ] Tests:
+  - Wildlife spawns at valid locations
+  - Beetles attack ants in range
+  - Aphids don't attack
+  - Killed wildlife creates corpse with correct jelly
+
+## Task 9: Fog of War
 
 **File:** `src/simulation/visibility.py`
 **Tests:** `tests/test_simulation/test_visibility.py`
@@ -148,7 +207,7 @@ Before either dev starts, agree on and commit these shared interface changes tog
 - [ ] Define visibility states: `UNEXPLORED = 0`, `FOG = 1`, `VISIBLE = 2`
 - [ ] Implement `VisibilityMap` class:
   - Per-player 2D grid of visibility states
-  - `update(entities, player_id)` — recompute VISIBLE tiles from unit positions
+  - `update(entities, player_id)` — recompute VISIBLE tiles from unit/hive positions
   - Previously VISIBLE tiles become FOG (not UNEXPLORED)
   - `get_visibility(player_id, x, y) -> int`
   - Sight radius uses integer distance check: `dx*dx + dy*dy <= radius*radius`
@@ -168,5 +227,5 @@ Before either dev starts, agree on and commit these shared interface changes tog
 - theCoon will build rendering/input against **mock data** and the agreed interfaces
 - Your TileMap, Entity fields, and visibility data are what the renderer will read
 - Keep the `TileMap`, `Entity`, and `VisibilityMap` interfaces stable once agreed
-- The renderer needs: `tilemap.get_tile(x,y)`, `tilemap.get_food(x,y)`, `entity.*` fields, `visibility.get_visibility(player_id, x, y)`
+- The renderer needs: `tilemap.get_tile(x,y)`, `entity.*` fields, `visibility.get_visibility(player_id, x, y)`
 - Run `python -m pytest tests/` before every commit — all simulation tests must pass

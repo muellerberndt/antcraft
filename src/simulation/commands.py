@@ -13,10 +13,13 @@ from enum import IntEnum
 
 
 class CommandType(IntEnum):
-    """All possible player actions. Expand this as new actions are added."""
+    """All possible player actions."""
     MOVE = 1
     STOP = 2
-    # Phase 2+: BUILD, GATHER, ATTACK, PRODUCE, RESEARCH, ...
+    HARVEST = 3      # send ants to harvest a corpse
+    SPAWN_ANT = 4    # spawn an ant from a hive
+    MERGE_QUEEN = 5  # merge N ants into a queen at a hive
+    FOUND_HIVE = 6   # queen founds a hive at a hive site
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +36,7 @@ class Command:
         entity_ids: Which entities this command targets (e.g. selected units).
         target_x: Target x position in milli-tiles (for MOVE).
         target_y: Target y position in milli-tiles (for MOVE).
+        target_entity_id: Target entity (for HARVEST — corpse, SPAWN — hive, etc.).
     """
     command_type: CommandType
     player_id: int
@@ -40,6 +44,7 @@ class Command:
     entity_ids: tuple[int, ...] = ()
     target_x: int = 0
     target_y: int = 0
+    target_entity_id: int = 0
 
     def sort_key(self) -> tuple[int, int, int]:
         """Deterministic ordering: by player, then type, then tick."""
