@@ -15,6 +15,7 @@ import pygame
 from src.config import (
     FPS,
     HASH_CHECK_INTERVAL,
+    INPUT_DELAY_TICKS,
     MAP_HEIGHT_TILES,
     MAP_WIDTH_TILES,
     MILLI_TILES_PER_TILE,
@@ -179,9 +180,13 @@ class Game:
         self._render(interp)
 
     def _send_pending_commands(self) -> None:
-        """Send commands for ticks we haven't sent yet."""
-        # Always send commands for the current tick + a few ahead
-        for tick in range(self._state.tick, self._state.tick + 4):
+        """Send commands for ticks we haven't sent yet.
+
+        Only send for ticks that are "locked" — no future input can target them.
+        Input schedules commands INPUT_DELAY_TICKS ahead, so ticks before
+        (current_tick + INPUT_DELAY_TICKS) are safe to finalize.
+        """
+        for tick in range(self._state.tick, self._state.tick + INPUT_DELAY_TICKS):
             if tick not in self._commands_sent_for_tick:
                 cmds = self._pending_commands.get(tick, [])
                 self._peer.send_commands(tick, cmds)
