@@ -92,27 +92,27 @@ The shared interfaces PR has been merged. The following are already in place:
   - No diagonal corner-cutting through rocks
   - Start position excluded from returned path
 
-## Task 4: Movement Along Path
+## Task 4: Movement Along Path — DONE
 
 **File:** `src/simulation/tick.py`
 
-- [ ] Replace simple target-based movement with path-following:
-  - Entity has `path: list[tuple[int, int]]` (waypoints in milli-tiles)
-  - Each tick: move toward `path[0]`, when reached pop it, move toward next
-  - When path is empty, entity state becomes IDLE
-  - Entity state is MOVING while path is non-empty
-- [ ] On MOVE command:
-  - Convert target from milli-tiles to tile coords
-  - Call `find_path()` from entity's current tile to target tile
-  - Convert path waypoints back to milli-tile centers
-  - Store on entity
-- [ ] On STOP command:
-  - Clear entity's path
-  - Set state to IDLE
-- [ ] Tests:
-  - Entity follows multi-waypoint path
+- [x] Path-following movement:
+  - Entity's `path: list[tuple[int, int]]` stores milli-tile waypoints
+  - Each tick: move toward `path[0]`, snap + pop when within speed distance
+  - When path empties, target_x/target_y set to current position (idle)
+  - Direct movement fallback for entities with target but no path
+- [x] On MOVE command:
+  - Convert target to tile coords, call `find_path()` for A* path
+  - Convert tile waypoints to milli-tile centers, store on entity
+  - Set target_x/target_y to final waypoint for renderer indicator
+- [x] On STOP command:
+  - Clear entity's path, set target to current position
+- [x] Tests (5 new path-following + existing updated):
+  - Entity follows path waypoints
+  - Waypoints popped as reached
   - Entity stops at final waypoint
   - STOP clears path mid-movement
+  - MOVE computes walkable path around rocks
 
 ## Task 5: Combat System
 

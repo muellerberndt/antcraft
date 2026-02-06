@@ -21,7 +21,7 @@ MAP_HEIGHT_TILES = 100
 # --- Ant ---
 ANT_HP = 20
 ANT_DAMAGE = 5           # DPS (divided by TICK_RATE for per-tick)
-ANT_SPEED = 60           # milli-tiles per tick
+ANT_SPEED = 400          # milli-tiles per tick
 ANT_SPAWN_COST = 10      # jelly
 ANT_SPAWN_COOLDOWN = 20  # ticks (2 sec at 10 Hz)
 ANT_CORPSE_JELLY = 5     # jelly dropped on death
@@ -62,6 +62,8 @@ HIVE_SIGHT = 16
 # --- General ---
 SIGHT_RADIUS = ANT_SIGHT  # backward compat alias
 ATTACK_RANGE = 1          # tiles
+SEPARATION_RADIUS = 600   # milli-tiles — entities closer get nudged apart
+SEPARATION_FORCE = 80     # push strength per overlapping neighbor per tick
 
 # --- Camera & Input ---
 CAMERA_SCROLL_SPEED = 10  # pixels per frame
