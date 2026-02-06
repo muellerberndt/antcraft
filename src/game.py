@@ -395,10 +395,15 @@ class Game:
         if peer_addr:
             debug_info["Peer"] = f"{peer_addr[0]}:{peer_addr[1]}"
 
+        selected = self._input.selection.selected_ids
+        debug_info["Selected"] = str(len(selected))
+
         self._renderer.draw(
             self._state, self._prev_positions, interp, debug_info,
             camera_x=self._camera_x, camera_y=self._camera_y,
             player_id=self._player_id,
+            selected_ids=selected,
+            drag_rect=self._input.drag_rect,
         )
 
     def _draw_connecting(self) -> None:

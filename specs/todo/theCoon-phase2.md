@@ -62,7 +62,7 @@ The shared interfaces PR has been merged. The following are already in place:
 - [x] Target indicator line for moving units
 - [x] Position interpolation between ticks
 - [x] Off-screen culling with 20px margin
-- [ ] Selected unit highlight — pending Task 5 (Selection System)
+- [x] Selected unit highlight (green circle) — implemented in Task 5
 - [ ] FOUNDING animation — pending simulation support
 
 ## Task 4: Fog of War Rendering — DONE
@@ -79,49 +79,43 @@ The shared interfaces PR has been merged. The following are already in place:
 - [x] Initial visibility computed after entity placement (tick 0)
 - [x] 14 unit tests: reveal, fog transitions, per-player isolation, euclidean distance, edge cases
 
-## Task 5: Selection System
+## Task 5: Selection System — DONE
 
-**File:** `src/input/selection.py`
-**Tests:** `tests/test_input/test_selection.py`
+**Files:** `src/input/selection.py`, `src/input/handler.py`, `src/rendering/renderer.py`, `tests/test_input/test_selection.py`
 
-- [ ] Implement `SelectionManager` class:
-  - `selected_ids: set[int]` — currently selected entity IDs
-  - `select_at(world_x, world_y, entities, player_id)` — click select nearest own unit within threshold
-  - `select_in_rect(x1, y1, x2, y2, entities, player_id)` — box select all own units in rectangle (world coords)
-  - `clear()`
-- [ ] Box selection drag:
-  - Track `drag_start` on left mouse button down
-  - On mouse button up: if drag distance > threshold → box select, else → click select
-  - Draw selection rectangle while dragging (green translucent rect)
-- [ ] Selection is **local only** — not synced, not in GameState
-- [ ] Only own units can be selected (filter by `player_id`)
-- [ ] Selectable types: ANT, QUEEN (not hives, wildlife, corpses)
-- [ ] Tests:
-  - Click selects nearest unit within threshold
-  - Click on empty area clears selection
-  - Box select selects all owned units in rectangle
-  - Cannot select enemy units
-  - Cannot select hives/corpses/wildlife
+- [x] `SelectionManager` class with `selected_ids: set[int]`, `select_at()`, `select_in_rect()`, `clear()`
+- [x] Click select: nearest own selectable unit within threshold (milli-tile distance)
+- [x] Box select: drag rectangle selects all own selectable units in world-coord rect
+- [x] Drag tracking in InputHandler: left mouse down starts drag, motion updates, mouse up triggers box or click select based on threshold
+- [x] Green translucent drag rectangle rendered while dragging
+- [x] Green selection highlight circle around selected entities
+- [x] Selection is **local only** — not synced, not in GameState
+- [x] Only own ANT and QUEEN can be selected (enemies, hives, wildlife, corpses excluded)
+- [x] Right click issues MOVE command for selected units
+- [x] S key issues STOP command for selected units
+- [x] Selected unit count shown in debug overlay
+- [x] 15 unit tests: click select, closest selection, empty click clears, enemy exclusion, hive/corpse/wildlife exclusion, queen selectable, box select, rect order invariance, box excludes enemies/non-selectable
 
 ## Task 6: Input Handler (expanded)
 
 **File:** `src/input/handler.py` (rewrite/expand)
 
-- [ ] Integrate with Camera for coordinate conversion:
-  - All mouse clicks → `camera.screen_to_world()` → milli-tile coords
-- [ ] Left click/drag: selection (delegate to SelectionManager)
-- [ ] Right click: context-sensitive command
+Already done in Task 5:
+- [x] Screen-to-world coordinate conversion (`_screen_to_world` in InputHandler)
+- [x] Left click/drag: selection (delegate to SelectionManager)
+- [x] Right click: MOVE command for selected units
+- [x] S key: STOP command for selected units
+- [x] All commands use `tick = current_tick + INPUT_DELAY_TICKS`
+- [x] Command creation uses selected entity IDs from SelectionManager
+
+Remaining:
+- [ ] Right click context-sensitive commands:
   - If clicking on a CORPSE entity and ants are selected → HARVEST command (target_entity_id = corpse ID)
   - If clicking on a HIVE_SITE and a QUEEN is selected → FOUND_HIVE command
-  - Otherwise → MOVE command for selected units
 - [ ] Keyboard:
-  - S key: STOP command for selected units
   - Q key (at hive): SPAWN_ANT command (target_entity_id = hive)
   - M key (at hive with ants selected): MERGE_QUEEN command
-  - Arrow keys / edge scroll: camera movement (delegate to Camera)
   - ESC: deselect all (or quit if nothing selected)
-- [ ] All commands still use `tick = current_tick + INPUT_DELAY_TICKS`
-- [ ] Update command creation to use selected entity IDs from SelectionManager
 
 ## Task 7: HUD & Minimap
 

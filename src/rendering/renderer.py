@@ -93,24 +93,19 @@ class Renderer:
         camera_x: int = 0,
         camera_y: int = 0,
         player_id: int = 0,
+        selected_ids: set[int] | None = None,
+        drag_rect: tuple[int, int, int, int] | None = None,
     ) -> None:
-        """Draw one frame.
-
-        Args:
-            state: Current game state.
-            prev_entities: Previous tick positions for interpolation.
-            interp: Interpolation factor [0.0, 1.0].
-            debug_info: Key-value pairs for debug overlay.
-            camera_x: Camera offset in pixels (horizontal).
-            camera_y: Camera offset in pixels (vertical).
-            player_id: Local player ID (for fog of war).
-        """
+        """Draw one frame."""
         self._screen.fill(COLOR_BG)
         self._draw_tiles(camera_x, camera_y)
         self._draw_entities(
             state, prev_entities, interp, camera_x, camera_y, player_id,
+            selected_ids or set(),
         )
         self._draw_fog(state, camera_x, camera_y, player_id)
+        if drag_rect:
+            self._draw_drag_rect(drag_rect)
         self._draw_debug(debug_info)
         pygame.display.flip()
 
@@ -167,6 +162,7 @@ class Renderer:
         camera_x: int,
         camera_y: int,
         player_id: int = 0,
+        selected_ids: set[int] | None = None,
     ) -> None:
         sw = self._screen.get_width()
         sh = self._screen.get_height()
@@ -199,6 +195,12 @@ class Renderer:
 
             self._draw_entity(entity, sx, sy, camera_x, camera_y)
 
+            # Selection highlight
+            if selected_ids and entity.entity_id in selected_ids:
+                pygame.draw.circle(
+                    self._screen, (0, 220, 0), (sx, sy), ANT_RADIUS + 8, 2,
+                )
+
             # Draw target indicator if moving
             if entity.is_moving and entity.player_id >= 0:
                 tx = entity.target_x * self._tile_size // MILLI_TILES_PER_TILE - camera_x
@@ -207,6 +209,20 @@ class Renderer:
                 target_color = tuple(c // 2 for c in color)
                 pygame.draw.circle(self._screen, target_color, (tx, ty), 4)
                 pygame.draw.line(self._screen, target_color, (sx, sy), (tx, ty), 1)
+
+    def _draw_drag_rect(self, drag_rect: tuple[int, int, int, int]) -> None:
+        """Draw the selection drag rectangle (green translucent)."""
+        x1, y1, x2, y2 = drag_rect
+        rx = min(x1, x2)
+        ry = min(y1, y2)
+        rw = abs(x2 - x1)
+        rh = abs(y2 - y1)
+        if rw < 2 or rh < 2:
+            return
+        rect_surf = pygame.Surface((rw, rh), pygame.SRCALPHA)
+        rect_surf.fill((0, 200, 0, 40))
+        self._screen.blit(rect_surf, (rx, ry))
+        pygame.draw.rect(self._screen, (0, 220, 0), (rx, ry, rw, rh), 1)
 
     def _draw_entity(
         self, entity: Entity, sx: int, sy: int,
