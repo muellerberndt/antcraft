@@ -21,61 +21,49 @@ The shared interfaces PR has been merged. The following are already in place:
 
 ---
 
-## Task 1: Camera & Viewport
+## Task 1: Camera & Viewport — DONE
 
-**File:** `src/rendering/camera.py`
-**Tests:** `tests/test_rendering/test_camera.py`
+**File:** `src/rendering/camera.py`, `tests/test_rendering/test_camera.py`
 
-- [ ] Implement `Camera` class:
-  - `x: int`, `y: int` — top-left corner in milli-tiles
-  - `width: int`, `height: int` — viewport size in pixels
-  - `tile_size: int` — pixels per tile
-  - `move(dx, dy)` — shift camera, clamp to map bounds
-  - `screen_to_world(screen_x, screen_y) -> (milli_tile_x, milli_tile_y)`
-  - `world_to_screen(milli_tile_x, milli_tile_y) -> (screen_x, screen_y)`
-  - `get_visible_tile_range() -> (min_tile_x, min_tile_y, max_tile_x, max_tile_y)`
-- [ ] Scrolling triggers:
-  - Arrow keys (held down = continuous scroll)
-  - Mouse at screen edge (within `CAMERA_EDGE_SCROLL_MARGIN` pixels)
-  - Minimap click (jump to location)
-- [ ] Camera is **local only** — never sent over the network, not part of GameState
-- [ ] Tests:
-  - `screen_to_world` / `world_to_screen` roundtrip
-  - Camera clamps to map bounds
-  - `get_visible_tile_range` returns correct tile rectangle
+- [x] `Camera` class with `screen_to_world`, `world_to_screen`, `move` (clamped), `get_visible_tile_range`, `center_on`, `handle_key_scroll`, `handle_edge_scroll`
+- [x] 23 unit tests passing (roundtrip within ±1 pixel tolerance due to integer division)
+- [x] Arrow key + WASD scrolling wired into `game.py` via simpler pixel-offset approach (Ben's camera code)
+- [x] Camera is local only
 
-## Task 2: Tile Map Rendering
+**Note:** `game.py` uses a direct pixel-offset camera (`_camera_x`, `_camera_y`) rather than the Camera class. The Camera class exists for future use/integration.
 
-**File:** `src/rendering/renderer.py` (extend existing)
+## Task 2: Tile Map Rendering — DONE
 
-- [ ] Render visible tiles based on camera viewport:
-  - Only draw tiles within `camera.get_visible_tile_range()` (culling)
-  - Tile colors: DIRT=brown, ROCK=gray, WATER=blue
-  - No FOOD tiles — jelly comes from corpses
-- [ ] Use the `TileMap` interface Ben provides: `tilemap.get_tile(x, y)`
-- [ ] **For development before Ben's code is ready:** create a simple `MockTileMap` with hardcoded terrain (mostly DIRT with some ROCK walls and WATER features)
-- [ ] Grid lines optional (toggle with debug key?)
+**File:** `src/rendering/renderer.py`
 
-## Task 3: Entity Rendering (expanded)
+- [x] Pre-rendered map surface via `_build_map_surface()` — full tilemap baked to a `pygame.Surface`
+- [x] Camera viewport blitting with `_draw_tiles(camera_x, camera_y)`
+- [x] Tile colors: DIRT=brown with per-tile variation, ROCK=gray with variation
+- [x] Subtle edge shading (bottom/right) for depth
+- [x] Uses Ben's `TileMap` and `generate_map(seed, w, h)` from `src/simulation/tilemap.py`
 
-**File:** `src/rendering/renderer.py` (extend existing)
+## Task 3: Entity Rendering — DONE
 
-- [ ] Draw entities relative to camera position (use `camera.world_to_screen()`)
-  - **ANT**: small colored circle, color by `player_id` (red/blue)
-  - **QUEEN**: larger colored circle with crown indicator
-  - **HIVE**: large colored hexagon or circle
-  - **HIVE_SITE**: gray/neutral marker (unclaimed expansion point)
-  - **CORPSE**: small gray X or skull marker, fade with decay
-  - **APHID**: tiny green dot (wildlife)
-  - **BEETLE**: medium brown dot (wildlife)
-  - **MANTIS**: large dark red dot (wildlife)
-- [ ] Entity state indicators:
-  - ATTACKING: red flash or slash effect
-  - HARVESTING: carrying jelly → small yellow dot above ant
-  - FOUNDING: queen building animation
-- [ ] Health bars above damaged units (only show if `hp < max_hp`)
-- [ ] Selected unit highlight (bright outline/ring) — reads from selection state (Task 5)
-- [ ] Interpolation: keep existing interpolation logic, adapt for camera coords
+**File:** `src/rendering/renderer.py`
+
+- [x] Per-entity-type sprite drawing with pygame primitives:
+  - **ANT**: segmented body (abdomen oval + thorax + head), 3 leg pairs, antennae, player-colored
+  - **QUEEN**: larger ant body with gold crown (3 spikes), player-colored
+  - **HIVE**: player-colored hexagon with inner honeycomb hex
+  - **HIVE_SITE**: gray outline hexagon
+  - **CORPSE**: small body oval with splayed legs, fades with decay
+  - **APHID**: plump green oval with head and antennae
+  - **BEETLE**: brown shell with split line, dark head with pincers, 3 leg pairs
+  - **MANTIS**: green elongated body, triangular head with yellow eyes, bent raptorial arms
+- [x] Entity state indicators:
+  - ATTACKING: red flash ring
+  - HARVESTING: yellow jelly dot on carrying ants
+- [x] Health bars above damaged units (`hp < max_hp`)
+- [x] Target indicator line for moving units
+- [x] Position interpolation between ticks
+- [x] Off-screen culling with 20px margin
+- [ ] Selected unit highlight — pending Task 5 (Selection System)
+- [ ] FOUNDING animation — pending simulation support
 
 ## Task 4: Fog of War Rendering
 

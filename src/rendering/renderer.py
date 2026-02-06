@@ -7,6 +7,8 @@ scrolling the viewport across the map.
 
 from __future__ import annotations
 
+import math
+
 import pygame
 
 from src.config import (
@@ -17,15 +19,14 @@ from src.config import (
     MILLI_TILES_PER_TILE,
     TILE_RENDER_SIZE,
 )
-from src.simulation.state import Entity, EntityType, GameState
+from src.simulation.state import Entity, EntityState, EntityType, GameState
 from src.simulation.tilemap import TileMap, TileType
 
 PLAYER_COLORS = {0: COLOR_PLAYER_1, 1: COLOR_PLAYER_2}
 ANT_RADIUS = 5
 HIVE_RADIUS = 12
 HIVE_SITE_RADIUS = 8
-COLOR_HIVE_SITE = (160, 150, 120)  # neutral beige
-MAX_ENTITY_RADIUS = HIVE_RADIUS  # for culling
+MAX_ENTITY_RADIUS = 20  # for culling (mantis arms extend far)
 
 
 class Renderer:
@@ -143,10 +144,10 @@ class Renderer:
             if sx < -r or sx > sw + r or sy < -r or sy > sh + r:
                 continue
 
-            self._draw_entity(entity, sx, sy)
+            self._draw_entity(entity, sx, sy, camera_x, camera_y)
 
             # Draw target indicator if moving
-            if entity.is_moving:
+            if entity.is_moving and entity.player_id >= 0:
                 tx = entity.target_x * self._tile_size // MILLI_TILES_PER_TILE - camera_x
                 ty = entity.target_y * self._tile_size // MILLI_TILES_PER_TILE - camera_y
                 color = PLAYER_COLORS.get(entity.player_id, (200, 200, 200))
@@ -154,32 +155,47 @@ class Renderer:
                 pygame.draw.circle(self._screen, target_color, (tx, ty), 4)
                 pygame.draw.line(self._screen, target_color, (sx, sy), (tx, ty), 1)
 
-    def _draw_entity(self, entity: Entity, sx: int, sy: int) -> None:
+    def _draw_entity(
+        self, entity: Entity, sx: int, sy: int,
+        camera_x: int, camera_y: int,
+    ) -> None:
         """Draw a single entity at screen position (sx, sy)."""
-        color = PLAYER_COLORS.get(entity.player_id, (200, 200, 200))
+        etype = entity.entity_type
+        s = self._screen
 
-        if entity.entity_type == EntityType.HIVE:
-            # Large filled circle with thicker outline
-            pygame.draw.circle(self._screen, color, (sx, sy), HIVE_RADIUS)
-            pygame.draw.circle(self._screen, (0, 0, 0), (sx, sy), HIVE_RADIUS, 2)
-            # Inner dot to distinguish from ants
-            pygame.draw.circle(self._screen, (255, 255, 255), (sx, sy), 3)
+        if etype == EntityType.ANT:
+            _draw_ant(s, sx, sy, entity, large=False)
+        elif etype == EntityType.QUEEN:
+            _draw_ant(s, sx, sy, entity, large=True)
+        elif etype == EntityType.HIVE:
+            color = PLAYER_COLORS.get(entity.player_id, (200, 200, 200))
+            _draw_hexagon(s, sx, sy, 16, color)
+            _draw_hexagon(s, sx, sy, 8, _darken(color, 40))
+            _draw_hexagon(s, sx, sy, 16, (0, 0, 0), width=2)
+        elif etype == EntityType.HIVE_SITE:
+            _draw_hexagon(s, sx, sy, 12, (100, 100, 100))
+            _draw_hexagon(s, sx, sy, 12, (60, 60, 60), width=2)
+        elif etype == EntityType.CORPSE:
+            _draw_corpse(s, sx, sy, entity)
+        elif etype == EntityType.APHID:
+            _draw_aphid(s, sx, sy)
+        elif etype == EntityType.BEETLE:
+            _draw_beetle(s, sx, sy)
+        elif etype == EntityType.MANTIS:
+            _draw_mantis(s, sx, sy)
 
-        elif entity.entity_type == EntityType.HIVE_SITE:
-            # Neutral diamond marker
-            pts = [(sx, sy - HIVE_SITE_RADIUS), (sx + HIVE_SITE_RADIUS, sy),
-                   (sx, sy + HIVE_SITE_RADIUS), (sx - HIVE_SITE_RADIUS, sy)]
-            pygame.draw.polygon(self._screen, COLOR_HIVE_SITE, pts, 2)
+        # Attack flash
+        if entity.state == EntityState.ATTACKING:
+            pygame.draw.circle(s, (255, 60, 60), (sx, sy), ANT_RADIUS + 6, 2)
 
-        elif entity.entity_type == EntityType.ANT:
-            # Small player-colored circle
-            pygame.draw.circle(self._screen, color, (sx, sy), ANT_RADIUS)
-            pygame.draw.circle(self._screen, (0, 0, 0), (sx, sy), ANT_RADIUS, 1)
-
-        else:
-            # Fallback for other types (corpses, wildlife, queens)
-            pygame.draw.circle(self._screen, color, (sx, sy), ANT_RADIUS)
-            pygame.draw.circle(self._screen, (0, 0, 0), (sx, sy), ANT_RADIUS, 2)
+        # Health bar for damaged units
+        if entity.hp < entity.max_hp and entity.max_hp > 0:
+            bar_w, bar_h = 20, 3
+            bx = sx - bar_w // 2
+            by = sy - 18
+            pygame.draw.rect(s, (60, 0, 0), (bx, by, bar_w, bar_h))
+            fill = max(1, entity.hp * bar_w // entity.max_hp)
+            pygame.draw.rect(s, (0, 200, 0), (bx, by, fill, bar_h))
 
     def _draw_debug(self, debug_info: dict[str, str]) -> None:
         y = 5
@@ -188,6 +204,183 @@ class Renderer:
             surface = self._font.render(text, True, COLOR_DEBUG_TEXT)
             self._screen.blit(surface, (5, y))
             y += 20
+
+
+def _draw_hexagon(
+    surface: pygame.Surface, cx: int, cy: int, radius: int,
+    color: tuple, width: int = 0,
+) -> None:
+    """Draw a hexagon centered at (cx, cy)."""
+    points = []
+    for i in range(6):
+        angle = math.pi / 3 * i - math.pi / 6
+        px = cx + int(radius * math.cos(angle))
+        py = cy + int(radius * math.sin(angle))
+        points.append((px, py))
+    pygame.draw.polygon(surface, color, points, width)
+
+
+def _darken(color: tuple, amount: int) -> tuple:
+    return tuple(max(0, c - amount) for c in color)
+
+
+def _draw_ant(
+    surface: pygame.Surface, sx: int, sy: int,
+    entity: Entity, large: bool,
+) -> None:
+    """Draw an ant (or queen) with body segments, legs, and antennae."""
+    color = PLAYER_COLORS.get(entity.player_id, (200, 200, 200))
+    outline = _darken(color, 60)
+
+    if large:
+        # Queen: bigger body
+        body_w, body_h = 12, 16
+        head_r = 5
+        head_off = 12
+        leg_len = 8
+        leg_spread = 5
+    else:
+        body_w, body_h = 8, 11
+        head_r = 3
+        head_off = 8
+        leg_len = 6
+        leg_spread = 4
+
+    # Abdomen (rear oval)
+    pygame.draw.ellipse(surface, color,
+                        (sx - body_w // 2, sy - 2, body_w, body_h))
+    pygame.draw.ellipse(surface, outline,
+                        (sx - body_w // 2, sy - 2, body_w, body_h), 1)
+
+    # Thorax (middle small circle)
+    thorax_y = sy - 2
+    pygame.draw.circle(surface, color, (sx, thorax_y), body_w // 3 + 1)
+
+    # Head
+    head_y = sy - head_off
+    pygame.draw.circle(surface, color, (sx, head_y), head_r)
+    pygame.draw.circle(surface, outline, (sx, head_y), head_r, 1)
+
+    # Legs (3 pairs from thorax)
+    for dy_off in (-2, 1, 4):
+        ly = thorax_y + dy_off
+        # Left leg
+        pygame.draw.line(surface, outline,
+                         (sx - 2, ly),
+                         (sx - leg_len, ly + leg_spread), 1)
+        # Right leg
+        pygame.draw.line(surface, outline,
+                         (sx + 2, ly),
+                         (sx + leg_len, ly + leg_spread), 1)
+
+    # Antennae
+    pygame.draw.line(surface, outline,
+                     (sx - 1, head_y - head_r),
+                     (sx - 5, head_y - head_r - 6), 1)
+    pygame.draw.line(surface, outline,
+                     (sx + 1, head_y - head_r),
+                     (sx + 5, head_y - head_r - 6), 1)
+
+    # Queen crown (3 gold spikes)
+    if large:
+        gold = (255, 215, 0)
+        for dx in (-3, 0, 3):
+            pygame.draw.polygon(surface, gold, [
+                (sx + dx - 2, head_y - head_r - 2),
+                (sx + dx + 2, head_y - head_r - 2),
+                (sx + dx, head_y - head_r - 7),
+            ])
+
+    # Jelly indicator
+    if entity.state == EntityState.HARVESTING or entity.carrying > 0:
+        pygame.draw.circle(surface, (240, 220, 60), (sx, sy + body_h + 2), 3)
+
+
+def _draw_corpse(
+    surface: pygame.Surface, sx: int, sy: int, entity: Entity,
+) -> None:
+    """Draw a dead ant corpse — legs splayed out."""
+    gray = max(80, 180 - entity.carrying * 5)
+    c = (gray, gray - 10, gray - 20)
+    # Small body
+    pygame.draw.ellipse(surface, c, (sx - 4, sy - 3, 8, 6))
+    # Splayed legs
+    for angle_deg in (30, 90, 150):
+        rad = math.radians(angle_deg)
+        dx = int(6 * math.cos(rad))
+        dy = int(6 * math.sin(rad))
+        pygame.draw.line(surface, c, (sx, sy), (sx + dx, sy + dy), 1)
+        pygame.draw.line(surface, c, (sx, sy), (sx - dx, sy + dy), 1)
+
+
+def _draw_aphid(surface: pygame.Surface, sx: int, sy: int) -> None:
+    """Draw a small green aphid."""
+    body_color = (110, 190, 80)
+    dark = (70, 140, 50)
+    # Plump oval body
+    pygame.draw.ellipse(surface, body_color, (sx - 4, sy - 3, 8, 6))
+    pygame.draw.ellipse(surface, dark, (sx - 4, sy - 3, 8, 6), 1)
+    # Tiny head
+    pygame.draw.circle(surface, body_color, (sx, sy - 4), 2)
+    # Antennae
+    pygame.draw.line(surface, dark, (sx - 1, sy - 6), (sx - 3, sy - 9), 1)
+    pygame.draw.line(surface, dark, (sx + 1, sy - 6), (sx + 3, sy - 9), 1)
+
+
+def _draw_beetle(surface: pygame.Surface, sx: int, sy: int) -> None:
+    """Draw a beetle with shell halves."""
+    shell = (140, 100, 50)
+    dark = (80, 55, 25)
+    head_color = (60, 40, 20)
+    # Shell (oval)
+    pygame.draw.ellipse(surface, shell, (sx - 7, sy - 5, 14, 12))
+    pygame.draw.ellipse(surface, dark, (sx - 7, sy - 5, 14, 12), 1)
+    # Shell split line
+    pygame.draw.line(surface, dark, (sx, sy - 5), (sx, sy + 7), 1)
+    # Head
+    pygame.draw.circle(surface, head_color, (sx, sy - 7), 3)
+    # Pincers
+    pygame.draw.line(surface, head_color, (sx - 2, sy - 9), (sx - 5, sy - 12), 2)
+    pygame.draw.line(surface, head_color, (sx + 2, sy - 9), (sx + 5, sy - 12), 2)
+    # Legs
+    for dy in (-2, 1, 4):
+        pygame.draw.line(surface, dark, (sx - 6, sy + dy), (sx - 10, sy + dy + 3), 1)
+        pygame.draw.line(surface, dark, (sx + 6, sy + dy), (sx + 10, sy + dy + 3), 1)
+
+
+def _draw_mantis(surface: pygame.Surface, sx: int, sy: int) -> None:
+    """Draw a praying mantis — elongated body with raptorial arms."""
+    body = (50, 160, 50)
+    dark = (30, 100, 30)
+    eye_color = (200, 200, 40)
+    # Elongated abdomen
+    pygame.draw.ellipse(surface, body, (sx - 5, sy, 10, 16))
+    pygame.draw.ellipse(surface, dark, (sx - 5, sy, 10, 16), 1)
+    # Thorax
+    pygame.draw.ellipse(surface, body, (sx - 4, sy - 6, 8, 8))
+    # Triangular head
+    pygame.draw.polygon(surface, body, [
+        (sx - 5, sy - 8),
+        (sx + 5, sy - 8),
+        (sx, sy - 15),
+    ])
+    pygame.draw.polygon(surface, dark, [
+        (sx - 5, sy - 8),
+        (sx + 5, sy - 8),
+        (sx, sy - 15),
+    ], 1)
+    # Eyes
+    pygame.draw.circle(surface, eye_color, (sx - 3, sy - 10), 2)
+    pygame.draw.circle(surface, eye_color, (sx + 3, sy - 10), 2)
+    # Raptorial front arms (bent)
+    pygame.draw.line(surface, dark, (sx - 4, sy - 5), (sx - 10, sy - 12), 2)
+    pygame.draw.line(surface, dark, (sx - 10, sy - 12), (sx - 8, sy - 18), 2)
+    pygame.draw.line(surface, dark, (sx + 4, sy - 5), (sx + 10, sy - 12), 2)
+    pygame.draw.line(surface, dark, (sx + 10, sy - 12), (sx + 8, sy - 18), 2)
+    # Back legs
+    for dy in (2, 6):
+        pygame.draw.line(surface, dark, (sx - 4, sy + dy), (sx - 9, sy + dy + 5), 1)
+        pygame.draw.line(surface, dark, (sx + 4, sy + dy), (sx + 9, sy + dy + 5), 1)
 
 
 def _clamp(val: int, lo: int, hi: int) -> int:

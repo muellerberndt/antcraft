@@ -17,13 +17,19 @@ from src.config import (
     ANT_DAMAGE,
     ANT_HP,
     ANT_SPEED,
+    APHID_HP,
+    APHID_JELLY,
+    BEETLE_DAMAGE,
+    BEETLE_HP,
+    BEETLE_JELLY,
     CAMERA_SCROLL_SPEED,
     FPS,
     HASH_CHECK_INTERVAL,
     HIVE_HP,
     INPUT_DELAY_TICKS,
-    MAP_HEIGHT_TILES,
-    MAP_WIDTH_TILES,
+    MANTIS_DAMAGE,
+    MANTIS_HP,
+    MANTIS_JELLY,
     MILLI_TILES_PER_TILE,
     NET_TIMEOUT_DISCONNECT_MS,
     NET_TIMEOUT_WARNING_MS,
@@ -113,16 +119,18 @@ class Game:
         """Create starting entities for both players.
 
         Per balance.md: 1 hive + STARTING_ANTS ants per player,
-        plus neutral HIVE_SITE entities at expansion points.
+        plus neutral HIVE_SITE entities at expansion points,
+        and wildlife around the map.
         """
         tilemap = self._state.tilemap
+        mt = MILLI_TILES_PER_TILE
 
         # Ant placement offsets (tile offsets from hive, for STARTING_ANTS=5)
         ant_offsets = [(-2, -1), (-1, 1), (0, -2), (1, 1), (2, -1)]
 
         for player_id, (tx, ty) in enumerate(tilemap.start_positions):
-            hive_x = tx * MILLI_TILES_PER_TILE + MILLI_TILES_PER_TILE // 2
-            hive_y = ty * MILLI_TILES_PER_TILE + MILLI_TILES_PER_TILE // 2
+            hive_x = tx * mt + mt // 2
+            hive_y = ty * mt + mt // 2
 
             # Spawn hive
             self._state.create_entity(
@@ -134,8 +142,8 @@ class Game:
             # Spawn starting ants around the hive
             for i in range(STARTING_ANTS):
                 dx, dy = ant_offsets[i % len(ant_offsets)]
-                ax = hive_x + dx * MILLI_TILES_PER_TILE
-                ay = hive_y + dy * MILLI_TILES_PER_TILE
+                ax = hive_x + dx * mt
+                ay = hive_y + dy * mt
                 self._state.create_entity(
                     player_id=player_id, x=ax, y=ay,
                     entity_type=EntityType.ANT,
@@ -145,13 +153,38 @@ class Game:
 
         # Place neutral hive sites at expansion points
         for sx, sy in tilemap.hive_site_positions:
-            site_x = sx * MILLI_TILES_PER_TILE + MILLI_TILES_PER_TILE // 2
-            site_y = sy * MILLI_TILES_PER_TILE + MILLI_TILES_PER_TILE // 2
+            site_x = sx * mt + mt // 2
+            site_y = sy * mt + mt // 2
             self._state.create_entity(
                 player_id=-1, x=site_x, y=site_y,
                 entity_type=EntityType.HIVE_SITE,
                 speed=0, hp=0, max_hp=0, damage=0,
             )
+
+        # Spawn wildlife around map center
+        mcx = (tilemap.width // 2) * mt
+        mcy = (tilemap.height // 2) * mt
+
+        # Aphids
+        for dx in range(4):
+            self._state.create_entity(
+                player_id=-1, x=mcx + dx * mt, y=mcy - 8 * mt,
+                entity_type=EntityType.APHID, speed=0,
+                hp=APHID_HP, max_hp=APHID_HP, jelly_value=APHID_JELLY)
+
+        # Beetle
+        self._state.create_entity(
+            player_id=-1, x=mcx + 8 * mt, y=mcy,
+            entity_type=EntityType.BEETLE, speed=0,
+            hp=BEETLE_HP, max_hp=BEETLE_HP,
+            damage=BEETLE_DAMAGE, jelly_value=BEETLE_JELLY)
+
+        # Mantis
+        self._state.create_entity(
+            player_id=-1, x=mcx, y=mcy + 8 * mt,
+            entity_type=EntityType.MANTIS, speed=0,
+            hp=MANTIS_HP, max_hp=MANTIS_HP,
+            damage=MANTIS_DAMAGE, jelly_value=MANTIS_JELLY)
 
     def run(self) -> None:
         """Main game loop. Returns when the game ends."""
