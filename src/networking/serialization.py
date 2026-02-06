@@ -7,7 +7,7 @@ Wire format for a full message:
     [msg_type:u8][payload_len:u16][payload:bytes]
 
 Command format within COMMANDS payload:
-    [n_commands:u16]
+    [tick:u32][n_commands:u16]
     per command:
         [type:u8][player:u8][tick:u32][n_entities:u16]
         [entity_ids:u32 * n_entities][target_x:i32][target_y:i32]
@@ -53,9 +53,16 @@ CMD_ENTITY = struct.Struct("!I")     # entity_id (u32)
 CMD_TARGET = struct.Struct("!ii")    # target_x(i32), target_y(i32)
 
 
-def encode_commands(commands: list[Command]) -> bytes:
-    """Encode a list of Commands into binary."""
+def encode_commands(commands: list[Command], tick: int | None = None) -> bytes:
+    """Encode a list of Commands into binary.
+
+    Wire format: [tick:u32][n_commands:u16][per-command data...]
+    The tick header allows empty command lists to carry their tick number.
+    """
     parts: list[bytes] = []
+    if tick is None:
+        tick = commands[0].tick if commands else 0
+    parts.append(struct.pack("!I", tick))
     parts.append(struct.pack("!H", len(commands)))
     for cmd in commands:
         parts.append(CMD_HEADER.pack(
@@ -67,9 +74,11 @@ def encode_commands(commands: list[Command]) -> bytes:
     return b"".join(parts)
 
 
-def decode_commands(data: bytes) -> list[Command]:
-    """Decode binary data into a list of Commands."""
+def decode_commands(data: bytes) -> tuple[int, list[Command]]:
+    """Decode binary data into (tick, list of Commands)."""
     offset = 0
+    (msg_tick,) = struct.unpack_from("!I", data, offset)
+    offset += 4
     (n_commands,) = struct.unpack_from("!H", data, offset)
     offset += 2
     commands: list[Command] = []
@@ -91,7 +100,7 @@ def decode_commands(data: bytes) -> list[Command]:
             target_x=target_x,
             target_y=target_y,
         ))
-    return commands
+    return msg_tick, commands
 
 
 # --- Connect/ConnectAck ---

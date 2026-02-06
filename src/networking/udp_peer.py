@@ -147,10 +147,7 @@ class UdpNetworkPeer(NetworkPeer):
         logger.info("Connected! seed=%d, player_id=%d", seed, player_id)
 
     def _handle_commands(self, payload: bytes) -> None:
-        commands = decode_commands(payload)
-        if not commands:
-            return
-        tick = commands[0].tick
+        tick, commands = decode_commands(payload)
         # Deduplicate: only store if we don't already have commands for this tick
         if tick not in self._received_commands:
             self._received_commands[tick] = commands
@@ -165,7 +162,7 @@ class UdpNetworkPeer(NetworkPeer):
     def send_commands(self, tick: int, commands: list[Command]) -> None:
         if not self._connected:
             return
-        payload = encode_commands(commands)
+        payload = encode_commands(commands, tick=tick)
         msg = encode_message(MessageType.COMMANDS, payload)
         for _ in range(SEND_REDUNDANCY):
             self._send_raw(msg)

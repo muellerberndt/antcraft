@@ -24,8 +24,9 @@ class TestCommandSerialization:
             target_x=5000,
             target_y=-3000,
         )
-        data = encode_commands([cmd])
-        result = decode_commands(data)
+        data = encode_commands([cmd], tick=42)
+        tick, result = decode_commands(data)
+        assert tick == 42
         assert len(result) == 1
         assert result[0] == cmd
 
@@ -36,13 +37,15 @@ class TestCommandSerialization:
             tick=100,
             entity_ids=(7,),
         )
-        data = encode_commands([cmd])
-        result = decode_commands(data)
+        data = encode_commands([cmd], tick=100)
+        tick, result = decode_commands(data)
+        assert tick == 100
         assert result[0] == cmd
 
     def test_roundtrip_empty(self):
-        data = encode_commands([])
-        result = decode_commands(data)
+        data = encode_commands([], tick=5)
+        tick, result = decode_commands(data)
+        assert tick == 5
         assert result == []
 
     def test_roundtrip_multiple(self):
@@ -51,20 +54,21 @@ class TestCommandSerialization:
             Command(CommandType.STOP, 1, 10, (2, 3)),
             Command(CommandType.MOVE, 0, 11, (), -500, -600),
         ]
-        data = encode_commands(cmds)
-        result = decode_commands(data)
+        data = encode_commands(cmds, tick=10)
+        tick, result = decode_commands(data)
+        assert tick == 10
         assert result == cmds
 
     def test_no_entity_ids(self):
         cmd = Command(CommandType.MOVE, 0, 5, (), 100, 200)
-        data = encode_commands([cmd])
-        result = decode_commands(data)
+        data = encode_commands([cmd], tick=5)
+        tick, result = decode_commands(data)
         assert result[0].entity_ids == ()
 
     def test_negative_coordinates(self):
         cmd = Command(CommandType.MOVE, 0, 0, (0,), -2147483648, 2147483647)
-        data = encode_commands([cmd])
-        result = decode_commands(data)
+        data = encode_commands([cmd], tick=0)
+        tick, result = decode_commands(data)
         assert result[0].target_x == -2147483648
         assert result[0].target_y == 2147483647
 
