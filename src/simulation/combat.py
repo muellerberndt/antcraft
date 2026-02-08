@@ -125,7 +125,9 @@ def _process_deaths(state: GameState) -> None:
     dead = []
     alive = []
     for entity in state.entities:
-        if entity.hp <= 0 and entity.entity_type != EntityType.CORPSE:
+        if entity.hp <= 0 and entity.entity_type not in (
+            EntityType.CORPSE, EntityType.HIVE_SITE,
+        ):
             dead.append(entity)
         else:
             alive.append(entity)

@@ -90,16 +90,22 @@ class GameState:
         winner: Player ID of the winner, or -1.
     """
 
-    def __init__(self, seed: int = 0) -> None:
+    def __init__(self, seed: int = 0, tilemap: TileMap | None = None) -> None:
         self.tick: int = 0
         self.entities: list[Entity] = []
         self.rng_state: int = seed & 0xFFFFFFFF
         self.next_entity_id: int = 0
         self.game_over: bool = False
         self.winner: int = -1
-        self.tilemap: TileMap = generate_map(seed, MAP_WIDTH_TILES, MAP_HEIGHT_TILES)
-        self.player_jelly: dict[int, int] = {0: STARTING_JELLY, 1: STARTING_JELLY}
-        self.visibility: VisibilityMap = VisibilityMap(MAP_WIDTH_TILES, MAP_HEIGHT_TILES)
+        if tilemap is not None:
+            self.tilemap = tilemap
+            self.player_jelly: dict[int, int] = {0: 0, 1: 0}
+        else:
+            self.tilemap = generate_map(seed, MAP_WIDTH_TILES, MAP_HEIGHT_TILES)
+            self.player_jelly = {0: STARTING_JELLY, 1: STARTING_JELLY}
+        self.visibility: VisibilityMap = VisibilityMap(
+            self.tilemap.width, self.tilemap.height
+        )
 
     def create_entity(
         self,
