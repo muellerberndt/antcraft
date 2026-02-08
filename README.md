@@ -90,6 +90,13 @@ python -m pytest tests/ -v
 
 The test suite covers simulation logic (movement, combat, harvesting, hive mechanics, wildlife, pathfinding, visibility). Tests run without PyGame — they exercise the deterministic simulation layer directly.
 
+There are two kinds of automated tests:
+
+- **Unit tests** (`tests/test_simulation/`) — low-level tests for individual subsystems.
+- **Scenario tests** (`tests/test_scenarios/`) — high-level gameplay flow tests using a declarative harness. These set up a small map, place entities, issue commands, run the simulation, and assert outcomes.
+
+See [docs/testing.md](docs/testing.md) for the full testing guide, including how to write scenario tests.
+
 ### Manual testing
 
 ```bash
@@ -113,4 +120,4 @@ The debug overlay (top-left) shows tick, jelly, ant count, FPS, and connection s
 - [docs/manual.md](docs/manual.md) — Game mechanics and rules
 - [docs/hotkeys.md](docs/hotkeys.md) — Complete controls reference
 - [docs/simulation.md](docs/simulation.md) — Simulation architecture (for developers)
-2
+- [docs/testing.md](docs/testing.md) — Testing guide and scenario harness reference
