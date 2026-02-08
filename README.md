@@ -59,10 +59,55 @@ Replace `<HOST_IP>` with Player 1's IP address (e.g. `192.168.1.42`). For testin
 
 ## Controls
 
-- **Left click** — Move your ant to the clicked position
+| Input | Action |
+|-------|--------|
+| Left click | Select unit |
+| Left click + drag | Box select multiple units |
+| Right click | Context command (auto-detects: enemy=attack, corpse=harvest, hive site=found, ground=move) |
+| S | Stop selected units |
+| A + right-click | Attack a target |
+| E + right-click | Harvest a corpse |
+| M + right-click | Force move (ignore targets) |
+| F + right-click | Found hive at site |
+| N | Spawn ant from selected hive |
+| Q | Merge selected ants into a queen |
+| H | Send queen to found hive at nearest site |
+| Arrow keys | Scroll camera |
+| F11 | Toggle fullscreen |
+| ESC | Quit |
 
-## Running Tests
+See [docs/hotkeys.md](docs/hotkeys.md) for the full reference.
+
+## Testing
+
+### Automated tests
 
 ```bash
 python -m pytest tests/ -v
 ```
+
+The test suite covers simulation logic (movement, combat, harvesting, hive mechanics, wildlife, pathfinding, visibility). Tests run without PyGame — they exercise the deterministic simulation layer directly.
+
+### Manual testing
+
+```bash
+python -m src.main --local
+```
+
+This starts a local game with mock networking. Things to check:
+
+- **Economy**: jelly counter ticks up (passive income). Spawn ants with N (costs 10 jelly).
+- **Movement**: select ants, right-click to move. Ants pathfind around rocks.
+- **Combat**: right-click an enemy or wildlife to attack. Ants auto-attack nearby enemies.
+- **Harvesting**: kill something, then right-click the corpse. Ants pick up jelly and return to hive.
+- **Queens**: select 5+ ants near hive, press Q to merge. Right-click a hive site to found.
+- **Wildlife**: beetles and mantis chase your units. Aphids are passive.
+- **Fog of war**: areas outside unit sight are fogged.
+
+The debug overlay (top-left) shows tick, jelly, ant count, FPS, and connection status.
+
+## Documentation
+
+- [docs/manual.md](docs/manual.md) — Game mechanics and rules
+- [docs/hotkeys.md](docs/hotkeys.md) — Complete controls reference
+- [docs/simulation.md](docs/simulation.md) — Simulation architecture (for developers)

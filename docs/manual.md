@@ -44,7 +44,7 @@ Your primary unit. Spawned from hives for 10 jelly (2 second cooldown).
 | HP       | 20             |
 | Damage   | 5 DPS          |
 | Speed    | 400 milli-tiles/tick |
-| Sight    | 5 tiles        |
+| Sight    | 12 tiles       |
 | Corpse   | 5 jelly        |
 
 Ants auto-attack nearby enemies within 1 tile range. They can move, attack, and carry jelly.
@@ -78,22 +78,36 @@ Hives cannot move or attack. They can be destroyed by enemy ants.
 
 Neutral locations on the map where new hives can be founded. Send a queen to a hive site to claim it. Once founded, the queen is consumed and the site becomes your hive.
 
+### Harvesting
+
+When an enemy or wildlife dies, it leaves a corpse containing jelly. Send ants to harvest it:
+
+1. Select ants and right-click a corpse (or press E then right-click)
+2. Ants walk to the corpse and extract jelly (5 jelly/sec)
+3. When full (10 jelly capacity) or corpse empty, ants auto-return to nearest hive
+4. Jelly is deposited at the hive, then ants go back for more
+5. When the corpse is empty or decayed, ants go idle
+
+Harvest range is 2 tiles. Corpses decay after 15 seconds, so harvest quickly.
+
 ### Combat
 
 - Ants auto-attack the nearest enemy within 1 tile
+- Use the Attack command (A + right-click on target) to explicitly send ants to chase and fight a specific enemy
 - Damage is dealt per-tick using integer math (5 DPS = 1 damage every other tick)
 - Dead units leave corpses that can be harvested for jelly
 - Corpses decay over 15 seconds
+- Attack-mode ants will divert to closer enemies that enter their aggro range
 
 ### Wildlife
 
 NPC creatures spawn around the map. Killing them yields jelly.
 
-| Creature | HP  | Damage | Jelly |
-|----------|-----|--------|-------|
-| Aphid    | 5   | 0      | 3     |
-| Beetle   | 80  | 8 DPS  | 25    |
-| Mantis   | 200 | 20 DPS | 80    |
+| Creature | HP  | Damage | Jelly | Behavior |
+|----------|-----|--------|-------|----------|
+| Aphid    | 5   | 0      | 3     | Passive, stationary |
+| Beetle   | 80  | 8 DPS  | 25    | Chases players within 5 tiles |
+| Mantis   | 200 | 20 DPS | 80    | Chases players within 5 tiles |
 
 ### Fog of War
 
