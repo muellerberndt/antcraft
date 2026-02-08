@@ -57,6 +57,18 @@ Key mechanics:
 - **Hives** spawn ants, generate passive jelly income, and are the win condition (lose all hives = eliminated).
 - **Wildlife** (aphids, beetles, mantis) are NPCs that drop jelly-bearing corpses when killed.
 
+## Testing
+
+Every change must go through this checklist:
+
+1. **Unit tests** — add/update tests in `tests/test_simulation/` for the subsystem changed.
+2. **Scenario tests** — add/update end-to-end tests in `tests/test_scenarios/` using the `Scenario` harness (`tests/scenario.py`).
+3. **Regression** — re-run affected scenario tests: `python -m pytest tests/test_scenarios/ -v`.
+4. **Balance** — if stats/costs/income changed, run scenario tests to verify no dominant strategy emerges.
+5. **Full suite** — `python -m pytest tests/ -v` must pass with zero failures.
+
+See `AGENTS.md` for scenario harness API reference and tips.
+
 ## Architecture Notes
 
 - This is a real-time strategy game — game loop timing and frame-rate independence matter.
