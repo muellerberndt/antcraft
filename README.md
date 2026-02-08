@@ -1,3 +1,5 @@
+![AntCraft](static/antcraft.png)
+
 # AntCraft
 
 P2P multiplayer real-time strategy game with ants, built on PyGame.
@@ -111,3 +113,4 @@ The debug overlay (top-left) shows tick, jelly, ant count, FPS, and connection s
 - [docs/manual.md](docs/manual.md) — Game mechanics and rules
 - [docs/hotkeys.md](docs/hotkeys.md) — Complete controls reference
 - [docs/simulation.md](docs/simulation.md) — Simulation architecture (for developers)
+2
