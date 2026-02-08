@@ -4,7 +4,7 @@
 SCREEN_WIDTH = 1600
 SCREEN_HEIGHT = 900
 FPS = 60
-TILE_RENDER_SIZE = 16  # pixels per tile for rendering
+TILE_RENDER_SIZE = 32  # pixels per tile for rendering
 
 # --- Simulation ---
 TICK_RATE = 10  # simulation ticks per second
@@ -71,7 +71,7 @@ ANT_CARRY_CAPACITY = 10       # max jelly an ant can carry per trip
 # --- Economy ---
 STARTING_JELLY = 50
 STARTING_ANTS = 5
-CORPSE_DECAY_TICKS = 150  # 15 sec at 10 Hz
+CORPSE_DECAY_TICKS = 600  # 60 sec at 10 Hz
 
 # --- Sight radii (tiles) ---
 ANT_SIGHT = 12
@@ -94,10 +94,10 @@ SEPARATION_RADIUS = 600   # milli-tiles — entities closer get nudged apart
 SEPARATION_FORCE = 80     # push strength per overlapping neighbor per tick
 
 # --- Camera & Input ---
-CAMERA_SCROLL_SPEED = 10  # pixels per frame
+CAMERA_SCROLL_SPEED = 20  # pixels per frame
 CAMERA_EDGE_SCROLL_MARGIN = 20  # pixels from screen edge to trigger scroll
 MINIMAP_SIZE = 200  # pixels
-SELECTION_THRESHOLD = 15  # pixels, click selection radius
+SELECTION_THRESHOLD = 20  # pixels, click selection radius
 
 # --- Networking ---
 DEFAULT_PORT = 23456

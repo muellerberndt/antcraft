@@ -246,8 +246,8 @@ class HUD:
     # ---- Selection panel (bottom of screen) ----
 
     _PANEL_MARGIN = 10
-    _CELL_SIZE = 40
-    _CELL_PAD = 3
+    _CELL_SIZE = 56
+    _CELL_PAD = 4
 
     def _draw_selection_info(self, state: GameState, selected_ids: set[int]) -> None:
         """Draw selection panel at bottom of screen with unit cells."""

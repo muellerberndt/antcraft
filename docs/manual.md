@@ -112,7 +112,7 @@ Harvest range is 2 tiles. Corpses decay after 15 seconds, so harvest quickly.
 - Use the Attack command (A + right-click on target) to explicitly send ants to chase and fight a specific enemy
 - Damage is dealt per-tick using integer math (5 DPS = 1 damage every other tick)
 - Dead units leave corpses that can be harvested for jelly
-- Corpses decay over 15 seconds
+- Corpses decay over 60 seconds
 - Attack-mode ants will divert to closer enemies that enter their aggro range
 
 ### Wildlife

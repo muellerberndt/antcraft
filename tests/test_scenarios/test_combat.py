@@ -31,7 +31,7 @@ class TestCombat:
         beetle = s.add_beetle(tile=(6, 5))
         s.attack(ant, beetle)
         # Ant has 20 HP, beetle does 8 DPS => dies in ~3 sec = 30 ticks.
-        # Keep under CORPSE_DECAY_TICKS (150) so corpse still exists.
+        # Keep under CORPSE_DECAY_TICKS (600) so corpse still exists.
         s.run(ticks=50)
         s.assert_dead(ant)
         # A corpse should exist somewhere near the fight

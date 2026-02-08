@@ -65,6 +65,15 @@ class InputHandler:
         commands: list[Command] = []
         for event in events:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                # If a command mode is active, left-click executes the command
+                # (SC2-style: A + left-click = attack-move)
+                if self._command_mode is not None:
+                    cmds = self._handle_right_click(
+                        event.pos, state, current_tick, camera_x, camera_y,
+                    )
+                    commands.extend(cmds)
+                    # Don't start drag selection
+                    continue
                 self._drag_start = event.pos
                 self._drag_current = event.pos
                 self._dragging = False
