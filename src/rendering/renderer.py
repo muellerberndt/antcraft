@@ -262,6 +262,8 @@ class Renderer:
             _draw_beetle(s, sx, sy)
         elif etype == EntityType.MANTIS:
             _draw_mantis(s, sx, sy)
+        elif etype == EntityType.SPITTER:
+            _draw_spitter(s, sx, sy, entity)
 
         # Attack flash
         if entity.state == EntityState.ATTACKING:
@@ -366,6 +368,48 @@ def _draw_ant(
     # Jelly indicator — only show when actually carrying jelly
     if entity.carrying > 0:
         pygame.draw.circle(surface, (240, 220, 60), (sx, sy + body_h + 2), 3)
+
+
+def _draw_spitter(
+    surface: pygame.Surface, sx: int, sy: int, entity: Entity,
+) -> None:
+    """Draw a spitter ant — like a regular ant but with a green poison sac."""
+    color = PLAYER_COLORS.get(entity.player_id, (200, 200, 200))
+    outline = _darken(color, 60)
+    poison = (80, 200, 40)
+
+    body_w, body_h = 8, 11
+    head_r = 3
+    head_off = 8
+    leg_len = 6
+    leg_spread = 4
+
+    # Abdomen with poison sac (green tint)
+    pygame.draw.ellipse(surface, poison, (sx - body_w // 2, sy - 2, body_w, body_h))
+    pygame.draw.ellipse(surface, _darken(poison, 30),
+                        (sx - body_w // 2, sy - 2, body_w, body_h), 1)
+
+    # Thorax
+    thorax_y = sy - 2
+    pygame.draw.circle(surface, color, (sx, thorax_y), body_w // 3 + 1)
+
+    # Head
+    head_y = sy - head_off
+    pygame.draw.circle(surface, color, (sx, head_y), head_r)
+    pygame.draw.circle(surface, outline, (sx, head_y), head_r, 1)
+
+    # Legs
+    for dy_off in (-2, 1, 4):
+        ly = thorax_y + dy_off
+        pygame.draw.line(surface, outline, (sx - 2, ly), (sx - leg_len, ly + leg_spread), 1)
+        pygame.draw.line(surface, outline, (sx + 2, ly), (sx + leg_len, ly + leg_spread), 1)
+
+    # Antennae
+    pygame.draw.line(surface, outline, (sx - 1, head_y - head_r), (sx - 5, head_y - head_r - 6), 1)
+    pygame.draw.line(surface, outline, (sx + 1, head_y - head_r), (sx + 5, head_y - head_r - 6), 1)
+
+    # Poison spit indicator (small green dot at "mouth")
+    pygame.draw.circle(surface, poison, (sx, head_y - head_r - 2), 2)
 
 
 def _draw_corpse(

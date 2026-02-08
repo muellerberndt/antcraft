@@ -21,6 +21,7 @@ from src.config import (
     ANT_HP,
     ANT_SIGHT,
     ANT_SPEED,
+    ATTACK_RANGE,
     MAP_HEIGHT_TILES,
     MAP_WIDTH_TILES,
     STARTING_JELLY,
@@ -38,6 +39,7 @@ class EntityType(IntEnum):
     APHID = 5      # wildlife tier 1
     BEETLE = 6     # wildlife tier 2
     MANTIS = 7     # wildlife tier 3
+    SPITTER = 8    # ranged ant morph
 
 
 class EntityState(IntEnum):
@@ -72,6 +74,7 @@ class Entity:
     sight: int = ANT_SIGHT  # sight radius in tiles
     cooldown: int = 0       # ticks remaining (e.g. hive spawn cooldown)
     target_entity_id: int = -1  # entity being targeted (corpse for harvest, enemy for attack)
+    attack_range: int = ATTACK_RANGE  # attack range in tiles (1 for melee, 4 for spitter)
 
     @property
     def is_moving(self) -> bool:
@@ -181,6 +184,7 @@ class GameState:
             h.update(e.sight.to_bytes(4, "big"))
             h.update(e.cooldown.to_bytes(4, "big"))
             h.update(e.target_entity_id.to_bytes(4, "big", signed=True))
+            h.update(e.attack_range.to_bytes(4, "big"))
         # Visibility grids
         for pid in range(self.visibility.num_players):
             h.update(self.visibility.get_grid_bytes(pid))

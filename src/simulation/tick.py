@@ -18,6 +18,7 @@ from src.simulation.commands import Command, CommandType
 from src.simulation.hive import (
     handle_found_hive,
     handle_merge_queen,
+    handle_morph_spitter,
     handle_spawn_ant,
     process_hive_mechanics,
 )
@@ -65,6 +66,8 @@ def _process_commands(state: GameState, commands: list[Command]) -> None:
             _handle_attack(state, cmd)
         elif cmd.command_type == CommandType.HARVEST:
             _handle_harvest(state, cmd)
+        elif cmd.command_type == CommandType.MORPH_SPITTER:
+            handle_morph_spitter(state, cmd)
 
 
 def _handle_move(state: GameState, cmd: Command) -> None:
@@ -225,7 +228,7 @@ def _handle_harvest(state: GameState, cmd: Command) -> None:
 
 
 _AGGRO_TARGETS = frozenset({
-    EntityType.ANT, EntityType.QUEEN, EntityType.HIVE,
+    EntityType.ANT, EntityType.QUEEN, EntityType.HIVE, EntityType.SPITTER,
     EntityType.APHID, EntityType.BEETLE, EntityType.MANTIS,
 })
 

@@ -10,28 +10,26 @@ from __future__ import annotations
 from src.config import (
     ANT_CORPSE_JELLY,
     APHID_JELLY,
-    ATTACK_RANGE,
     BEETLE_JELLY,
     CORPSE_DECAY_TICKS,
     MANTIS_JELLY,
     MILLI_TILES_PER_TILE,
+    SPITTER_CORPSE_JELLY,
     TICK_RATE,
 )
 from src.simulation.state import EntityState, EntityType, GameState
-
-# Attack range in milli-tiles (squared for distance comparison)
-_ATTACK_RANGE_MT = ATTACK_RANGE * MILLI_TILES_PER_TILE
-_ATTACK_RANGE_SQ = _ATTACK_RANGE_MT * _ATTACK_RANGE_MT
 
 # Entity types that can be attacked
 _ATTACKABLE_TYPES = frozenset({
     EntityType.ANT, EntityType.QUEEN, EntityType.HIVE,
     EntityType.APHID, EntityType.BEETLE, EntityType.MANTIS,
+    EntityType.SPITTER,
 })
 
 # Jelly value dropped as corpse on death (types not listed leave no corpse)
 _CORPSE_JELLY = {
     EntityType.ANT: ANT_CORPSE_JELLY,
+    EntityType.SPITTER: SPITTER_CORPSE_JELLY,
     EntityType.APHID: APHID_JELLY,
     EntityType.BEETLE: BEETLE_JELLY,
     EntityType.MANTIS: MANTIS_JELLY,
@@ -88,9 +86,13 @@ def _auto_attack(state: GameState) -> None:
             # Rest tick — don't change state to avoid visual flickering
             continue
 
+        # Per-entity attack range (melee=1 tile, spitter=4 tiles)
+        range_mt = attacker.attack_range * MILLI_TILES_PER_TILE
+        range_sq = range_mt * range_mt
+
         # Find nearest enemy within attack range
         best_target = None
-        best_dist_sq = _ATTACK_RANGE_SQ + 1
+        best_dist_sq = range_sq + 1
 
         for target in state.entities:
             if not _is_enemy(attacker, target):
@@ -98,7 +100,7 @@ def _auto_attack(state: GameState) -> None:
             dx = attacker.x - target.x
             dy = attacker.y - target.y
             dist_sq = dx * dx + dy * dy
-            if dist_sq > _ATTACK_RANGE_SQ:
+            if dist_sq > range_sq:
                 continue
             if dist_sq < best_dist_sq or (
                 dist_sq == best_dist_sq

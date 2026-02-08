@@ -129,6 +129,10 @@ class InputHandler:
                 if cmd is not None:
                     commands.append(cmd)
 
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_t:
+                cmds = self._handle_morph_spitter(state, current_tick)
+                commands.extend(cmds)
+
         return commands
 
     def _click_select(
@@ -434,6 +438,34 @@ class InputHandler:
             entity_ids=(queen.entity_id,),
             target_entity_id=site.entity_id,
         )
+
+    def _handle_morph_spitter(self, state: GameState, current_tick: int) -> list[Command]:
+        """T key: MORPH_SPITTER — morph selected ants into spitters at nearest hive."""
+        ant_ids = []
+        for eid in self.selection.selected_ids:
+            e = state.get_entity(eid)
+            if e is not None and e.entity_type == EntityType.ANT and e.player_id == self._player_id:
+                ant_ids.append(eid)
+
+        if not ant_ids:
+            return []
+
+        # Find nearest own hive to first ant
+        first_ant = state.get_entity(ant_ids[0])
+        if first_ant is None:
+            return []
+        hive = self._find_nearest(state, EntityType.HIVE, self._player_id, first_ant.x, first_ant.y)
+        if hive is None:
+            return []
+
+        # Issue one MORPH_SPITTER per selected ant
+        return [Command(
+            command_type=CommandType.MORPH_SPITTER,
+            player_id=self._player_id,
+            tick=current_tick + INPUT_DELAY_TICKS,
+            entity_ids=(aid,),
+            target_entity_id=hive.entity_id,
+        ) for aid in sorted(ant_ids)]
 
     @staticmethod
     def _find_nearest(

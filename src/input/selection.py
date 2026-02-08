@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from src.simulation.state import Entity, EntityType
 
-SELECTABLE_TYPES = {EntityType.ANT, EntityType.QUEEN, EntityType.HIVE}
+SELECTABLE_TYPES = {EntityType.ANT, EntityType.QUEEN, EntityType.HIVE, EntityType.SPITTER}
 
 
 class SelectionManager:

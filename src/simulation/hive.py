@@ -14,6 +14,7 @@ from src.config import (
     ANT_SPAWN_COOLDOWN,
     ANT_SPAWN_COST,
     ANT_SPEED,
+    ATTACK_RANGE,
     FOUND_HIVE_RANGE,
     HIVE_HP,
     HIVE_PASSIVE_INCOME,
@@ -24,6 +25,13 @@ from src.config import (
     QUEEN_MERGE_COST,
     QUEEN_SIGHT,
     QUEEN_SPEED,
+    SPITTER_ATTACK_RANGE,
+    SPITTER_CORPSE_JELLY,
+    SPITTER_DAMAGE,
+    SPITTER_HP,
+    SPITTER_MORPH_COST,
+    SPITTER_SIGHT,
+    SPITTER_SPEED,
     TICK_RATE,
 )
 from src.simulation.commands import Command
@@ -311,3 +319,56 @@ def handle_found_hive(state: GameState, cmd: Command) -> None:
         queen.path = []
 
     queen.state = EntityState.FOUNDING
+
+
+def handle_morph_spitter(state: GameState, cmd: Command) -> None:
+    """MORPH_SPITTER: validate ant near hive, deduct jelly, replace ant with spitter."""
+    if len(cmd.entity_ids) != 1:
+        return
+    ant = state.get_entity(cmd.entity_ids[0])
+    if ant is None:
+        return
+    if ant.entity_type != EntityType.ANT:
+        return
+    if ant.player_id != cmd.player_id:
+        return
+
+    hive = state.get_entity(cmd.target_entity_id)
+    if hive is None:
+        return
+    if hive.entity_type != EntityType.HIVE:
+        return
+    if hive.player_id != cmd.player_id:
+        return
+
+    # Check ant is near hive
+    dx = ant.x - hive.x
+    dy = ant.y - hive.y
+    if dx * dx + dy * dy > _MERGE_RANGE_SQ:
+        return
+
+    # Check jelly
+    jelly = state.player_jelly.get(cmd.player_id, 0)
+    if jelly < SPITTER_MORPH_COST:
+        return
+
+    # Deduct jelly
+    state.player_jelly[cmd.player_id] = jelly - SPITTER_MORPH_COST
+
+    # Remove the ant, create spitter at the ant's position
+    sx, sy = ant.x, ant.y
+    state.entities = [e for e in state.entities if e.entity_id != ant.entity_id]
+
+    state.create_entity(
+        player_id=cmd.player_id,
+        x=sx,
+        y=sy,
+        entity_type=EntityType.SPITTER,
+        speed=SPITTER_SPEED,
+        hp=SPITTER_HP,
+        max_hp=SPITTER_HP,
+        damage=SPITTER_DAMAGE,
+        jelly_value=SPITTER_CORPSE_JELLY,
+        sight=SPITTER_SIGHT,
+        attack_range=SPITTER_ATTACK_RANGE,
+    )

@@ -73,6 +73,7 @@ Replace `<HOST_IP>` with Player 1's IP address (e.g. `192.168.1.42`). For testin
 | F + right-click | Found hive at site |
 | N | Spawn ant from selected hive |
 | Q | Merge selected ants into a queen |
+| T | Morph selected ants into spitters |
 | H | Send queen to found hive at nearest site |
 | Arrow keys | Scroll camera |
 | F11 | Toggle fullscreen |

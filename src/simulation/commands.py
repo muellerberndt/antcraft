@@ -21,6 +21,7 @@ class CommandType(IntEnum):
     MERGE_QUEEN = 5  # merge N ants into a queen at a hive
     FOUND_HIVE = 6   # queen founds a hive at a hive site
     ATTACK = 7       # explicitly attack a target entity (chase + fight)
+    MORPH_SPITTER = 8  # morph an ant into a spitter at a hive
 
 
 @dataclass(frozen=True, slots=True)

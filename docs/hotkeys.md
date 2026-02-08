@@ -19,6 +19,7 @@
 | F              | Found mode — next right-click founds hive at site   |
 | N              | Spawn ant from selected hive (or nearest own hive)  |
 | Q              | Merge selected ants into a queen at nearest hive    |
+| T              | Morph selected ants into spitters at nearest hive   |
 | H              | Send selected queen to found hive at nearest site   |
 | Up Arrow       | Scroll camera up                                    |
 | Left Arrow     | Scroll camera left                                  |

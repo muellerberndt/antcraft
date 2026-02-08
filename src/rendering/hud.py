@@ -294,6 +294,7 @@ class HUD:
         from src.rendering.renderer import (
             _draw_ant,
             _draw_hexagon,
+            _draw_spitter,
             _darken,
             PLAYER_COLORS as R_PLAYER_COLORS,
         )
@@ -316,6 +317,8 @@ class HUD:
             sprite_y = cy + cell // 2
             if e.entity_type == EntityType.ANT:
                 _draw_ant(self._screen, sprite_x, sprite_y, e, large=False)
+            elif e.entity_type == EntityType.SPITTER:
+                _draw_spitter(self._screen, sprite_x, sprite_y, e)
             elif e.entity_type == EntityType.QUEEN:
                 _draw_ant(self._screen, sprite_x, sprite_y + 2, e, large=True)
             elif e.entity_type == EntityType.HIVE:

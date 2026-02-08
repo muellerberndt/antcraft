@@ -25,6 +25,7 @@ from src.config import (
     APHID_DAMAGE,
     APHID_HP,
     APHID_JELLY,
+    ATTACK_RANGE,
     BEETLE_DAMAGE,
     BEETLE_HP,
     BEETLE_JELLY,
@@ -40,6 +41,12 @@ from src.config import (
     QUEEN_HP,
     QUEEN_SIGHT,
     QUEEN_SPEED,
+    SPITTER_ATTACK_RANGE,
+    SPITTER_CORPSE_JELLY,
+    SPITTER_DAMAGE,
+    SPITTER_HP,
+    SPITTER_SIGHT,
+    SPITTER_SPEED,
     WILDLIFE_AGGRO_RANGE,
 )
 from src.simulation.commands import Command, CommandType
@@ -111,6 +118,7 @@ _MARKERS: dict[EntityType, tuple[str, str, str]] = {
     EntityType.APHID:     ("p", "P", "p"),
     EntityType.BEETLE:    ("b", "B", "b"),
     EntityType.MANTIS:    ("m", "M", "m"),
+    EntityType.SPITTER:   ("t", "T", "t"),
 }
 
 # Higher = drawn on top when entities share a tile
@@ -121,6 +129,7 @@ _DISPLAY_PRIORITY: dict[EntityType, int] = {
     EntityType.BEETLE:    3,
     EntityType.MANTIS:    4,
     EntityType.ANT:       5,
+    EntityType.SPITTER:   5,
     EntityType.QUEEN:     6,
     EntityType.HIVE:      7,
 }
@@ -258,6 +267,20 @@ class Scenario:
             self._labels[e.entity_id] = label
         return e.entity_id
 
+    def add_spitter(self, player: int, tile: tuple[int, int],
+                    label: str | None = None) -> int:
+        mx, my = _tile_center(tile[0], tile[1])
+        e = self.state.create_entity(
+            player_id=player, x=mx, y=my,
+            entity_type=EntityType.SPITTER,
+            speed=SPITTER_SPEED, hp=SPITTER_HP, max_hp=SPITTER_HP,
+            damage=SPITTER_DAMAGE, jelly_value=SPITTER_CORPSE_JELLY,
+            sight=SPITTER_SIGHT, attack_range=SPITTER_ATTACK_RANGE,
+        )
+        if label:
+            self._labels[e.entity_id] = label
+        return e.entity_id
+
     # --- Commands --------------------------------------------------------
 
     def move(self, entity_id: int, tile: tuple[int, int]) -> None:
@@ -341,6 +364,16 @@ class Scenario:
             tick=self.state.tick + 1,
             entity_ids=(queen_id,),
             target_entity_id=site_id,
+        ))
+
+    def morph_spitter(self, ant_id: int, hive_entity_id: int,
+                      player: int) -> None:
+        self._pending_commands.append(Command(
+            command_type=CommandType.MORPH_SPITTER,
+            player_id=player,
+            tick=self.state.tick + 1,
+            entity_ids=(ant_id,),
+            target_entity_id=hive_entity_id,
         ))
 
     # --- Simulation ------------------------------------------------------
@@ -563,7 +596,7 @@ class Scenario:
         lines.append("")
         lines.append(
             "Markers: lowercase=p0 UPPERCASE=p1 "
-            "a/A=ant q/Q=queen h/H=hive s=site c=corpse "
+            "a/A=ant t/T=spitter q/Q=queen h/H=hive s=site c=corpse "
             "p=aphid b=beetle m=mantis"
         )
 

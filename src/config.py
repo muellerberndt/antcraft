@@ -78,9 +78,18 @@ ANT_SIGHT = 12
 QUEEN_SIGHT = 7
 HIVE_SIGHT = 16
 
+# --- Spitter Ant ---
+SPITTER_HP = 10
+SPITTER_DAMAGE = 4            # DPS
+SPITTER_SPEED = ANT_SPEED     # same movement speed as ant
+SPITTER_ATTACK_RANGE = 4      # tiles (ranged)
+SPITTER_MORPH_COST = 8        # jelly cost to morph (ant is consumed)
+SPITTER_CORPSE_JELLY = 5      # same as ant
+SPITTER_SIGHT = ANT_SIGHT     # same sight as ant
+
 # --- General ---
 SIGHT_RADIUS = ANT_SIGHT  # backward compat alias
-ATTACK_RANGE = 1          # tiles
+ATTACK_RANGE = 1          # tiles (melee default)
 SEPARATION_RADIUS = 600   # milli-tiles — entities closer get nudged apart
 SEPARATION_FORCE = 80     # push strength per overlapping neighbor per tick
 

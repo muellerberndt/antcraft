@@ -50,8 +50,8 @@ The scenario harness provides a high-level, declarative API for testing gameplay
 
 - **`ascii_map(text)`** / **`open_map(w, h)`** — create small test maps.
 - **`Scenario(tilemap)`** — wraps a `GameState` with tile-coordinate helpers.
-- **Entity creation** — `add_ant(player, tile)`, `add_hive(...)`, `add_corpse(tile, jelly)`, `add_queen(...)`, `add_hive_site(...)`, `add_aphid(...)`, `add_beetle(...)`, `add_mantis(...)`. All accept an optional `label` for readable error output.
-- **Commands** — `move(id, tile)`, `attack(id, target_id)`, `harvest(id, corpse_id)`, `stop(id)`, `spawn_ant(hive_id, player)`, `merge_queen(ant_ids, hive_id, player)`, `found_hive(queen_id, site_id, player)`.
+- **Entity creation** — `add_ant(player, tile)`, `add_spitter(player, tile)`, `add_hive(...)`, `add_corpse(tile, jelly)`, `add_queen(...)`, `add_hive_site(...)`, `add_aphid(...)`, `add_beetle(...)`, `add_mantis(...)`. All accept an optional `label` for readable error output.
+- **Commands** — `move(id, tile)`, `attack(id, target_id)`, `harvest(id, corpse_id)`, `stop(id)`, `spawn_ant(hive_id, player)`, `morph_spitter(ant_id, hive_id, player)`, `merge_queen(ant_ids, hive_id, player)`, `found_hive(queen_id, site_id, player)`.
 - **`run(ticks=N)`** — advances the simulation.
 - **Assertions** — `assert_at`, `assert_state`, `assert_alive`, `assert_dead`, `assert_carrying`, `assert_player_jelly`, `assert_player_jelly_gte`, etc. Each produces rich failure messages with entity details, an ASCII mini-map, and game state context.
 - **`dump()`** — returns a full ASCII state visualization (map with entity markers, legend table, jelly, tick). Use this in assertion messages or for debugging.

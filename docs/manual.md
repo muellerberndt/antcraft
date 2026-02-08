@@ -49,6 +49,22 @@ Your primary unit. Spawned from hives for 10 jelly (2 second cooldown).
 
 Ants auto-attack nearby enemies within 1 tile range. They can move, attack, and carry jelly.
 
+### Spitter Ants
+
+Ranged combat specialists morphed from regular ants. Select an ant near your hive and press T to morph it into a spitter (costs 8 jelly, irreversible). Spitters cannot harvest corpses or merge into queens.
+
+| Stat     | Value          |
+|----------|----------------|
+| HP       | 10             |
+| Damage   | 4 DPS          |
+| Range    | 4 tiles        |
+| Speed    | 400 milli-tiles/tick |
+| Sight    | 12 tiles       |
+| Corpse   | 5 jelly        |
+| Morph cost | 8 jelly (+ 1 ant consumed) |
+
+Spitters are glass cannons — low HP but high effective DPS at range. Best used behind melee ants in combined-arms formations.
+
 ### Queens
 
 Created by merging 5 ants at a hive. Queens are slow, defenseless units whose only purpose is to found new hives.
@@ -92,7 +108,7 @@ Harvest range is 2 tiles. Corpses decay after 15 seconds, so harvest quickly.
 
 ### Combat
 
-- Ants auto-attack the nearest enemy within 1 tile
+- Ants auto-attack the nearest enemy within 1 tile. Spitters auto-attack within 4 tiles
 - Use the Attack command (A + right-click on target) to explicitly send ants to chase and fight a specific enemy
 - Damage is dealt per-tick using integer math (5 DPS = 1 damage every other tick)
 - Dead units leave corpses that can be harvested for jelly

@@ -125,4 +125,4 @@ See `AGENTS.md` for scenario harness API reference and tips.
 - **Lockstep P2P:** Both peers run identical simulations. Only player commands are sent over the network. Commands execute 2 ticks in the future. State hashes are compared every 10 ticks to detect desync.
 - **Separation of concerns:** `src/simulation/` is pure logic with no PyGame dependency. `src/rendering/` and `src/input/` handle display and player interaction. Tests exercise simulation directly.
 - **Entity system:** All game objects (ants, queens, hives, wildlife, corpses, hive sites) are `Entity` dataclass instances in a flat list on `GameState`. Each has an `EntityType`, `EntityState`, position, HP, speed, damage, etc.
-- **Command system:** Player inputs are converted to `Command` objects (MOVE, STOP, HARVEST, ATTACK, SPAWN_ANT, MERGE_QUEEN, FOUND_HIVE). Commands are the only way to mutate game state.
+- **Command system:** Player inputs are converted to `Command` objects (MOVE, STOP, HARVEST, ATTACK, SPAWN_ANT, MERGE_QUEEN, FOUND_HIVE, MORPH_SPITTER). Commands are the only way to mutate game state.
