@@ -104,7 +104,7 @@ When an enemy or wildlife dies, it leaves a corpse containing jelly. Send ants t
 4. Jelly is deposited at the hive, then ants go back for more
 5. When the corpse is empty or decayed, ants go idle
 
-Harvest range is 2 tiles. Corpses decay after 15 seconds, so harvest quickly.
+Harvest range is 2 tiles. Corpses decay after 60 seconds, so harvest quickly.
 
 ### Combat
 
