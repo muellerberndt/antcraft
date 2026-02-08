@@ -19,6 +19,20 @@ All values are starting points, to be tuned through playtesting.
 | Harvest rate       | 5 jelly/sec|
 | Harvest range      | 1 tile     |
 
+## Spitter Ant
+
+| Parameter          | Value      |
+|--------------------|------------|
+| HP                 | 10         |
+| Damage             | 4 DPS      |
+| Attack range       | 4 tiles    |
+| Speed              | 60 px/sec  |
+| Sight radius       | 5 tiles    |
+| Morph cost         | 1 ant + 8 jelly |
+| Corpse jelly value | 5 jelly    |
+| Cannot harvest     | —          |
+| Cannot merge       | —          |
+
 ## Queen
 
 | Parameter          | Value      |

@@ -46,3 +46,7 @@ ENV/
 # Distribution
 *.tar.gz
 *.zip
+
+# Temp files
+
+temp/

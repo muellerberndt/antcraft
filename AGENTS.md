@@ -14,10 +14,13 @@
 
 ## Game Development Rules
 
-- **Frame-rate independence:** All movement and timers must use delta-time (`dt`), never raw frame counts.
+- **Frame-rate independence:** The simulation ticks at a fixed rate (10 Hz). All timing uses tick counts, not wall-clock time.
+- **Integer math only:** All simulation code uses integers. Positions are in milli-tiles (1 tile = 1000 milli-tiles). DPS is distributed across ticks via Bresenham-style integer math.
 - **Game loop:** Maintain a clear separation between `update(dt)` and `draw(screen)` phases.
 - **State management:** Use a state/scene system (menu, gameplay, pause, etc.) — don't put everything in one loop.
-- **Constants:** Define magic numbers (screen size, speeds, colors) as named constants in a config module.
+- **Constants:** All game parameters live in `src/config.py`. Never use magic numbers in simulation code.
+- **Entity system:** All game objects are `Entity` instances in `GameState.entities`. Use `EntityType` and `EntityState` enums. Create entities via `GameState.create_entity()`.
+- **Commands:** Player actions go through the `Command` system. Never mutate game state directly from input — create a command that executes on a future tick.
 
 ## P2P / Multiplayer
 

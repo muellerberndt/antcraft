@@ -44,6 +44,15 @@ Jelly is stored globally per player (not per-hive).
 - Ants have HP; when HP reaches 0 they die and leave a corpse worth half
   their spawn cost in jelly
 
+### Spitter Ant (ranged morph)
+
+- Created by **morphing an ant** at a hive (costs jelly)
+- Shoots poison at range — stays behind the front line
+- Brittle: low HP, dies fast if enemies close the gap
+- **Cannot harvest** — pure combat specialist
+- **Cannot merge into queen** — irreversible specialization
+- Combined-arms play: melee ants (and queens) tank, spitters deal damage from safety
+
 ### Queen (temporary / special)
 
 - Created by **merging N ants** together at a hive
@@ -107,6 +116,7 @@ Wildlife spawns randomly over time at random locations on the map.
 
 - Ants auto-attack enemies within range
 - Combat is simple: ants deal DPS to each other, HP goes down
+- Melee ants attack adjacent enemies; spitter ants attack at range
 - No armor, no abilities — just numbers and positioning
 - When an ant dies, it leaves a **corpse** on the ground
 - Corpses persist for a limited time, decaying over time and yielding
@@ -156,6 +166,4 @@ See [balance.md](balance.md) for all unit, structure, wildlife, and economy para
 
 - **Pheromone trails**: Ants leave trails, longer connected networks increase
   income or movement speed. Enemies can disrupt trails.
-- **Ant specialization**: Upgrade hives to spawn soldier ants vs worker ants.
-- **Fog of war**: Only see areas near your ants/hives.
 - **Map hazards**: Rain floods, falling leaves, etc.
